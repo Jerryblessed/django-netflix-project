@@ -1,0 +1,16 @@
+<h2>Manage Profiles</h2>
+<ul>
+  {% for profile in profiles %}
+    <li>
+      {{ profile.name }} - Preferred Category: {{ profile.preferred_category }}
+      <a href="{% url 'choose_profile' profile.id %}">Select</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<form method="post">
+  {% csrf_token %}
+  <input type="text" name="profile_name" placeholder="Profile Name" required>
+  <input type="text" name="preferred_category" placeholder="Preferred Category (Optional)">
+  <button type="submit">Add Profile</button>
+</form>

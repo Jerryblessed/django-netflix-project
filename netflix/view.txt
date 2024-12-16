@@ -1,0 +1,245 @@
+from datetime import datetime, timedelta, timezone
+from importlib import invalidate_caches
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, HttpResponseRedirect
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import authenticate, login, logout
+
+from .forms import RegisterForm
+from .forms import LoginForm
+from .forms import SearchForm
+from .models import Movie, Subscription
+from django.shortcuts import redirect, render
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseRedirect
+import requests
+from .models import Subscription
+
+
+
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from .models import Movie, Like
+
+
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.conf import settings
+from .models import Subscription
+
+import requests
+
+
+
+PAGE_SIZE_PER_CATEGORY = 20
+
+STRIPE_SECRET_KEY = "sk_test_51L8i0jDkGOBWyh471bK0YOEg5VQCiSHFsogH4mfytpAXQixAhGhIR47WImddmQya938dtTrpIadfnl3Aws8JVGys000VEv2oni"  # Replace with your Stripe secret key
+
+
+
+def like_movie_view(request, movie_id):
+    """Like or unlike a movie."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'You must be logged in to like a movie.'}, status=401)
+
+    movie = get_object_or_404(Movie, id=movie_id)
+    like, created = Like.objects.get_or_create(user=request.user, movie=movie)
+
+    if not created:
+        # If the user already liked the movie, remove the like
+        like.delete()
+        return JsonResponse({'message': 'Movie unliked', 'likes_count': Like.objects.filter(movie=movie).count()})
+
+    return JsonResponse({'message': 'Movie liked', 'likes_count': Like.objects.filter(movie=movie).count()})
+
+def user_liked_movies_view(request):
+    """Display movies liked by the user."""
+    if not request.user.is_authenticated:
+        return redirect('/login')
+
+    liked_movies = Movie.objects.filter(like__user=request.user)
+    return render(request, 'netflix/user_liked_movies.html', {'liked_movies': liked_movies})
+
+ 
+
+@login_required
+def index_view(request):
+    """Home page view."""
+    # Check user's subscription status
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or not subscription.date_expired or subscription.date_expired <= timezone.now():
+            # Redirect to subscription page if the subscription is inactive or expired
+            subscription.is_active = False  # Mark as inactive if expired
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        # Redirect to subscription page if no subscription exists
+        return redirect('subscription_view')
+
+    # List of categories to display for logged-in users with active subscriptions
+    categories_to_display = ['Action', 'Adventure']
+    data = {}
+
+    # Create a dictionary mapping each category to its movies
+    for category_name in categories_to_display:
+        movies = Movie.objects.filter(category__name=category_name)
+        if request.method == 'POST':
+            search_text = request.POST.get('search_text')
+            movies = movies.filter(name__icontains=search_text)
+        data[category_name] = movies[:PAGE_SIZE_PER_CATEGORY]  # Limit to PAGE_SIZE_PER_CATEGORY
+
+    search_form = SearchForm()
+
+    # Render the movies page for active subscribers
+    return render(request, 'netflix/index.html', {
+        'data': data.items(),
+        'search_form': search_form
+    })
+
+
+
+def watch_movie_view(request):
+    """Watch view."""
+    # The primary key of the movie the user want to watch is sent by GET parameters.
+    # We retrieve that pk.
+    movie_pk = request.GET.get('movie_pk')
+    # We try to get from the database the movie with the given pk 
+    try:
+        movie = Movie.objects.get(pk=movie_pk)
+    except Movie.DoesNotExist:
+        # if that movie doesn't exist, Movie.DoesNotExist exception is raised
+        # and we then catch it and set the url to None instead
+        movie = None
+    return render(request, 'netflix/watch_movie.html', {'movie': movie})
+
+
+def register_view(request):
+    """Registration view."""
+    if request.method == 'GET':
+        # executed to render the registration page
+        register_form = RegisterForm()
+        return render(request, 'netflix/register.html', locals())
+    else:
+        # executed on registration form submission
+        register_form = RegisterForm(request.POST)
+        if register_form.is_valid():
+            User.objects.create(
+                first_name=request.POST.get('firstname'),
+                last_name=request.POST.get('lastname'),
+                email=request.POST.get('email'),
+                username=request.POST.get('email'),
+                password=make_password(request.POST.get('password'))
+            )
+            return HttpResponseRedirect('/login')
+        return render(request, 'netflix/register.html', locals())
+
+
+def login_view(request):
+    """Login view."""
+    if request.method == 'GET':
+        # executed to render the login page
+        login_form = LoginForm()
+        return render(request, 'netflix/login.html', locals())
+    else:
+        # get user credentials input
+        username = request.POST['email']
+        password = request.POST['password']
+        # If the email provided by user exists and match the
+        # password he provided, then we authenticate him.
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            # if the credentials are good, we login the user
+            login(request, user)
+            # then we redirect him to home page
+            return HttpResponseRedirect('/')
+        # if the credentials are wrong, we redirect him to login and let him know
+        return render(
+            request,
+            'netflix/login.html',
+            {
+                'wrong_credentials': True,
+                'login_form': LoginForm(request.POST)
+            }
+        )
+
+def logout_view(request):
+    """Logout view."""
+    # logout the request
+    logout(request)
+    # redirect user to home page
+    return HttpResponseRedirect('/')
+
+
+
+
+
+
+
+@login_required
+def subscription_view(request):
+    """Show the subscription page with the payment link."""
+    user_subscription, created = Subscription.objects.get_or_create(user=request.user)
+
+    if request.method == "POST":
+        # Redirect user to Stripe payment link
+        return HttpResponseRedirect("https://buy.stripe.com/test_cN24jB4xvcVFbxC144")
+
+    return render(request, 'netflix/subscription.html', {'subscription': user_subscription})
+
+
+@login_required
+def subscription_callback(request):
+    """Handle payment success redirects and activate subscriptions."""
+    user_subscription, created = Subscription.objects.get_or_create(user=request.user)
+
+    # Assuming Stripe redirects to this view after successful payment
+    session_id = request.GET.get('session_id')  # This should be in the redirect URL query
+
+    if session_id:
+        # Verify the session with Stripe
+        response = requests.get(
+            f"https://api.stripe.com/v1/checkout/sessions/{session_id}",
+            headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"}
+        )
+        if response.status_code == 200:
+            session_data = response.json()
+            if session_data.get("payment_status") == "paid":
+                # Mark subscription as active
+                user_subscription.is_active = True
+                user_subscription.date_subscribed = timezone.now()
+                user_subscription.date_expired = timezone.now() + timezone.timedelta(days=30)
+                user_subscription.save()
+                return redirect('index')
+
+    return redirect('subscription_failure')
+
+
+@login_required
+def indexx_view(request):
+    """Restrict access to the movie page to active subscribers."""
+    try:
+        # Fetch the user's subscription
+        subscription = Subscription.objects.get(user=request.user)
+
+        # Check if subscription is active and not expired
+        if subscription.is_active and subscription.date_expired and subscription.date_expired > timezone.now():
+            return render(request, 'netflix/index.html')
+        
+        # If the subscription is inactive or expired, redirect to subscription page
+        subscription.is_active = False  # Mark subscription as inactive if expired
+        subscription.save()
+        return redirect('subscription_view')
+
+    except Subscription.DoesNotExist:
+        # If no subscription exists, redirect to subscription page
+        return redirect('subscription_view')
+
+
+@login_required
+def subscription_failure(request):
+    """Show the subscription failure page."""
+    return render(request, 'netflix/subscription_failure.html')

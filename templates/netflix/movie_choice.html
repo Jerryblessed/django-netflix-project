@@ -1,0 +1,42 @@
+'{%load static%}'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Successful</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e9f7ef;
+            color: #155724;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .success-message {
+            font-size: 1.5em;
+        }
+        .cta {
+            margin-top: 20px;
+        }
+        .cta a {
+            color: #155724;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Subscription Successful</h1>
+        <p class="success-message">Your subscription is now active! Enjoy your movies.</p>
+        <div class="cta">
+            <a href="{% url 'index' %}">Go to Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>

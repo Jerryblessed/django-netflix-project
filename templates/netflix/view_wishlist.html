@@ -1,0 +1,26 @@
+<h1>{{ active_profile.name }}'s Wishlist</h1>
+<ul>
+  {% for item in wishlist %}
+  <li>
+    <img src="{{ item.movie.preview_image.url }}" alt="{{ item.movie.name }}">
+    <h3>{{ item.movie.name }}</h3>
+    <p>Added on: {{ item.added_at|date:"F j, Y" }}</p>
+    <a href="{% url 'remove_from_wishlist' item.id %}">Remove</a>
+  </li>
+  {% endfor %}
+</ul>
+
+<h2>Recommended Movies</h2>
+<ul>
+  {% for movie in recommended_movies %}
+  <li>
+    <img src="{{ movie.preview_image.url }}" alt="{{ movie.name }}">
+    <h3>{{ movie.name }}</h3>
+    <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}">Watch Now</a>
+    <a href="{% url 'add_to_wishlist' movie.id %}">Add to Wishlist</a>
+  </li>
+  {% empty %}
+  <p>No recommendations available at the moment.</p>
+  {% endfor %}
+</ul>
+<a href="{% url 'index' %}">Back to Movies</a>

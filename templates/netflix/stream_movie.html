@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ movie.title }}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <header>
+        <h1>{{ movie.title }}</h1>
+        <a href="{% url 'movie_list' %}" class="btn">Back to Movies</a>
+    </header>
+    <div class="movie-stream-container">
+        <video controls autoplay>
+            <source src="{{ movie.video_url }}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="movie-details">
+            <h2>About the Movie</h2>
+            <p>{{ movie.description }}</p>
+            <p><strong>Release Date:</strong> {{ movie.release_date }}</p>
+        </div>
+    </div>
+</body>
+</html>

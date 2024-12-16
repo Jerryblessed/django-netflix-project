@@ -1,0 +1,14 @@
+<h1>Subscription</h1>
+{% if subscription.is_active %}
+    <p>Your {{ subscription.plan }} subscription is active until {{ subscription.date_expired }}</p>
+{% else %}
+    <p>Your subscription is inactive. Choose a plan to continue:</p>
+    <form method="POST">
+        {% csrf_token %}
+        {% for plan in plans %}
+            <input type="radio" id="{{ plan.name }}" name="plan" value="{{ plan.name }}">
+            <label for="{{ plan.name }}">{{ plan.name }} - ${{ plan.price|floatformat:2 }}</label><br>
+        {% endfor %}
+        <button type="submit">Subscribe Now</button>
+    </form>
+{% endif %}

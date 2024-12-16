@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Profiles</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .profile-list {
+            margin: 20px 0;
+        }
+        .profile-item {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .add-profile-form input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .add-profile-form button {
+            padding: 10px 20px;
+            background: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .add-profile-form button:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manage Profiles</h1>
+        <div class="profile-list">
+            {% for profile in profiles %}
+            <div class="profile-item">
+                <p>{{ profile.name }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% if profiles|length < 4 %}
+        <form class="add-profile-form" method="POST">
+            {% csrf_token %}
+            <input type="text" name="profile_name" placeholder="Enter profile name" required>
+            <button type="submit">Add Profile</button>
+        </form>
+        {% else %}
+        <p>You have reached the maximum of 4 profiles.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

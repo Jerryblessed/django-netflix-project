@@ -1,0 +1,16 @@
+{% load static %}
+<html>
+<head>
+  <title>Liked Movies</title>
+</head>
+<body>
+  <h1>Your Liked Movies</h1>
+  <ul>
+    {% for movie in liked_movies %}
+      <li>{{ movie.name }}</li>
+    {% empty %}
+      <li>You haven't liked any movies yet.</li>
+    {% endfor %}
+  </ul>
+</body>
+</html>

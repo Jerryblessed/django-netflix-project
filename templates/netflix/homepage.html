@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome to Netflix</title>
+    <link rel="stylesheet" href="{% static 'netflix/style.css' %}">
+</head>
+<body>
+    <header>
+        <h1>Welcome to Netflix</h1>
+        <nav>
+            <a href="/login">Login</a> |
+            <a href="/register">Register</a>
+        </nav>
+
+    </header>
+    <main>
+        <p>Explore our amazing collection of movies and TV shows by logging in.</p>
+    
+        <div style="text-align: center; margin: 20px;">
+    <iframe 
+        src="https://buy.stripe.com/test_cN24jB4xvcVFbxC144" 
+        title="Stripe Payment" 
+        width="600" 
+        height="400" 
+        frameborder="0"
+        allowfullscreen
+        style="border: none;">
+    </iframe>
+</div>
+
+
+    </main>
+</body>
+</html>
