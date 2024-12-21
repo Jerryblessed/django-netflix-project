@@ -1,0 +1,10 @@
+<h1>Your Watch History</h1>
+<ul>
+  {% for watch in watch_history %}
+  <li>
+    {{ watch.movie.name }} - Watched on {{ watch.watched_at|date:"F j, Y, g:i a" }}
+  </li>
+  {% empty %}
+  <li>No movies watched yet.</li>
+  {% endfor %}
+</ul>

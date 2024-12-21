@@ -1,0 +1,357 @@
+{%load static %}
+
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="no-js">
+<!--<![endif]-->
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Netflix world – Watch TV Shows Online, Watch Movies Online</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../assets/lib/owl.carousel.css" />
+    <script src="../assets/lib/jquery 3.5.0.js"></script>
+    <script src="../assets/lib/owl.carousel.js"></script>
+
+    <!--main script file-->
+    <script src="../assets/js/main-script.js"></script>
+
+
+    <link rel="stylesheet" href="{% static 'netflix/assets/css/global.css' %}">
+    <link rel="stylesheet" href="{% static 'netflix/assets/css/browse.css' %}">
+
+    <style> 
+        input[type=text] {
+          width: 130px;
+          box-sizing: border-box;
+          border: 1px solid white;
+          color: white;
+          border-radius: 4px;
+          font-size: 16px;
+          background-color: rgb(14, 14, 14);
+          background-position: 10px 10px; 
+          background-repeat: no-repeat;
+          padding: 12px 20px 12px 40px;
+          -webkit-transition: width 0.4s ease-in-out;
+          transition: width 0.4s ease-in-out;
+        }
+        
+        input[type=text]:focus {
+          width: 100%;
+        }
+        </style>
+</head>
+
+<body>
+    <!--[if lt IE 7]>
+            <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
+        <![endif]-->
+
+
+    <!-- dashboard/browse page block start | home page after login | -->
+
+    <main id="mainContainer" class="p-b-40">
+        <div>
+            <header class="d-flex space-between flex-center flex-middle" style="z-index: 20; background-color: black;">
+                            <div class="nav-links d-flex flex-center flex-middle">
+                                <a href="/">
+                                    <h2 class="logo logo-text red-color f-s-28 m-r-25">NETFLIX</h2>
+                                    <h2 class="second-logo-text red-color f-s-28">N</h2>
+                                </a>
+                                <a href="{% url 'home' %}" class="nav-item home">Home</a>
+                                <a href="{% url 'home' %}" class="nav-item">Categories</a>
+                                
+                                <a href="movies.html" class="nav-item">Movies</a>
+                                <a href="latest.html" class="nav-item latest">Latest</a>
+                                <a href="{% url 'view_wishlist' %}" class="nav-item">My List</a>
+                            </div>
+                            <div class="righticons d-flex flex-end flex-middle">
+                                <a href="search.html"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
+                                <div class="dropdown notification">
+                                    <img src="{% static 'netflix/assets/images/icons/notification.svg' %}" alt="notificatio icon">
+                                    <div class="dropdown-content">
+                                        {% for notification in notifications %}
+                                        <a href="#" class="profile-item d-flex flex-middle">
+                                            {% comment %} <img src="../../images/icons/user2.png" alt="user profile icon" class="user-icon"> {% endcomment %}
+                                            <li class="{% if not notification.is_read %}unread{% endif %}">
+                                            <span>{{ notification.message }} - {{ notification.created_at }}<span>User 123</span></span>
+                                              </li>
+  
+                                        </a>
+                                        {% endfor %}
+    
+      
+  
+                                    </div>
+                                </div>
+                                <div class="dropdown">
+                                    <img src="{% static 'netflix/assets/images/icons/user-image-green.png' %}" class="user-icon"> <span class="profile-arrow"></span>
+
+                                    <div class="dropdown-content">
+                                        <div class="profile-links">
+
+                                        {% comment %} {% for profile in profiles %}
+                                            <div class="col-md-3">
+                                                <a href="{% url 'choose_profile' profile.id %}">
+                                                    <img src="{% static 'netflix/img/profile-pic/1.png' %}" alt="Profile Image" class="img-thumbnail widt ml-1">
+                                                    <p class="text-center txt pt-1">{{ profile.name }}</p>
+                                                </a>
+                                            </div>
+                                        {% endfor %} {% endcomment %}
+
+                                        {% for profile in profiles %}
+                                            <a href="{% url 'choose_profile' profile.id %}" class="profile-item d-flex flex-middle">
+                                                <img src="{% static 'netflix/img/profile-pic/1.png' %}" alt="user profile icon" class="user-icon">
+                                                <span>{{ profile.name }}</span>
+                                            </a>
+                                        {% endfor %}
+                                            <a href="{% url 'profile_view' %}" class="profile-item last" >Manage Profiles</a>
+                                        </div>
+                                        <div class="line"></div>
+                                        <div class="links d-flex direction-column">
+                                            <a href="{% url 'settings'%}">Account</a>
+                                            <a href="#">Help Center</a>
+                                            <a href="/">Sign Out of Netflix</a>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+                                
+                            </div>
+            </header>            
+
+
+            <!--paretn div with black bg after main hero section-->
+            <div class="searchform d-flex flex-center flex-middle" style="padding-top: 150px;">
+
+<form method="GET" style="display: flex; align-items: center; gap: 10px; margin: 20px 0;">
+    <input 
+        type="text" 
+        name="search_text" 
+        value="{{ search_text }}" 
+        placeholder="Search movies" 
+        autocomplete="on"
+        style="
+            flex: 1; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 5px; 
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        "
+    >
+    <button 
+        type="submit" 
+        style="
+            padding: 10px 20px; 
+            background-color:rgb(255, 0, 8); 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s;
+        "
+        onmouseover="this.style.backgroundColor='#0056b3';" 
+        onmouseout="this.style.backgroundColor='#007BFF';"
+    >
+        Search
+    </button>
+</form>
+
+
+            </div>
+
+            
+            <div class="searchresult">
+                   {% if results %}
+
+
+                   <section id="search-results" class="container">
+    <h4 class="search-heading">Search Results</h4>
+    <div class="search-results-container d-flex flex-start flex-middle flex-no-wrap owl-carousel">
+        {% for movie in results %}
+        <div class="video" style="position: relative; width: 230px; height: 240px; margin-right: 10px;">
+            <!-- Video Element -->
+            <video 
+                class="search-img p-r-10 p-t-10 video-item" 
+                poster="{{ movie.thumbnail.url }}" 
+                width="230" 
+                height="240" 
+                muted
+                preload="none"
+                style="cursor: pointer; object-fit: cover; border-radius: 8px;"
+                onmouseover="this.play();" 
+                onmouseout="this.pause(); this.currentTime = 0;">
+                <source src="{{ movie.file.url }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+
+            <!-- Video Description -->
+            <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}">
+                <div 
+                    class="video-description d-flex flex-end direction-column" 
+                    style="position: absolute; bottom: 0; left: 0; right: 0; padding: 10px; background: rgba(0, 0, 0, 0.6); color: white; display: none; align-items: flex-start;"
+                    onmouseover="this.parentNode.querySelector('video').play();"
+                    onmouseout="this.parentNode.querySelector('video').pause(); this.parentNode.querySelector('video').currentTime = 0;">
+                    <h4 class="heading f-w-8 text-shadow" style="margin: 0;">{{ movie.name }}</h4>
+                    <p class="rated text-shadow" style="margin: 0; font-size: 12px;"><strong>Category:</strong> {{ movie.category.name }}</p>
+                    <div class="genere d-flex flex-no-wrap text-shadow" style="font-size: 12px;">
+                        {% for tag in movie.tags.all %}
+                        <p style="margin-right: 5px;">#{{ tag.name }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Inline JavaScript for Description Hover -->
+    <script>
+        document.querySelectorAll('.video').forEach(videoContainer => {
+            const video = videoContainer.querySelector('video');
+            const description = videoContainer.querySelector('.video-description');
+
+            videoContainer.addEventListener('mouseover', () => {
+                description.style.display = 'flex';
+            });
+            videoContainer.addEventListener('mouseout', () => {
+                description.style.display = 'none';
+            });
+        });
+    </script>
+</section>
+
+
+                 </div>
+            {% else %}
+                <p>No search for movie {{ search_text }}</p>
+            {% endif %}
+                </div>
+
+                
+        </div>
+
+        <footer class="mainfooter d-flex direction-column space-between" id=" footer">
+            <div class="container footer-container flex-start">
+                <div class="widgets d-flex space-between">
+                    <div class="first-widget">
+                        <ul>
+                            <li class="list-item">Audio and Subtitles</li>
+                            <li class="list-item">Media Center</li>
+                            <li class="list-item">Privacy</li>
+                            <li class="list-item">Contact us</li>
+                        </ul>
+                    </div>
+                    <div class="second-widget">
+                        <ul>
+                            <li class="list-item">Help Center</li>
+                            <li class="list-item">Cookie</li>
+                            <li class="list-item">Jobs</li>
+                        </ul>
+                    </div>
+                    <div class="third-widget">
+                        <ul>
+                            <li class="list-item">Audio Description</li>
+                            <li class="list-item">Investor Relations</li>
+                            <li class="list-item">Legal Notice</li>
+                        </ul>
+                    </div>
+                    <div class="forth-widget">
+                        <ul>
+                            <li class="list-item">Gift Card</li>
+                            <li class="list-item">Term Of Use</li>
+                            <li class="list-item">Corporate Information</li>
+                        </ul>
+                    </div>
+                </div>
+                <button class="button service">Service Code</button>
+                <p class="copyright">@copyright 2020 Vanilacodes, Inc.</p>
+            </div>
+
+
+        </footer>
+        </div>
+    </main>
+
+    <div class="footer-navigation d-flex space-between">
+        <a href="browse.html" class="nav-item active">
+            <i class="fa fa-home" aria-hidden="true"></i> </br>
+            <span>Home</span>
+        </a>
+        <a href="search.html" class="nav-item">
+            <i class="fa fa-search" aria-hidden="true"></i></br>
+            Search
+        </a>
+        <a href="latest.html" class="nav-item">
+            <i class="fa fa-film" aria-hidden="true"></i></br>
+            Latest
+        </a>
+        <a href="user-profile/home.html" class="nav-item">
+            <i class="fa fa-user" aria-hidden="true"></i></br>
+            Account
+        </a>
+    </div>
+</body>
+
+</html>
+
+
+
+
+<style>
+    .results-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .result-box {
+        width: 300px;
+        background-color: #1c1c1c;
+        color: white;
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s;
+    }
+
+    .result-box:hover {
+        transform: scale(1.05);
+    }
+
+    .result-box h3 {
+        margin: 0 0 10px;
+    }
+
+    .result-box p {
+        font-size: 14px;
+        color: #ccc;
+    }
+
+    .result-box a {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 8px 12px;
+        background-color: #e50914;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+
+    .result-box a:hover {
+        background-color: #f40612;
+    }
+</style>

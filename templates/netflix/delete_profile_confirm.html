@@ -1,0 +1,60 @@
+<div class="container mt-5 text-center">
+    <!-- Page Header -->
+    <h1 class="mb-4 text-danger">Delete Profile</h1>
+    
+    <!-- Confirmation Message -->
+    <p class="mb-4">Are you sure you want to delete the profile <strong>"{{ profile.name }}"</strong>? This action cannot be undone.</p>
+    
+    <!-- Buttons -->
+    <form method="post" class="d-inline-block">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger btn-lg px-4">Yes, Delete</button>
+    </form>
+    <a href="{% url 'profile_view' profile.id %}" class="btn btn-secondary btn-lg px-4">Cancel</a>
+</div>
+
+<!-- Custom Styles -->
+<style>
+    .container {
+        max-width: 600px;
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    p {
+        font-size: 1.2rem;
+        color: #333;
+    }
+
+    .btn {
+        margin: 10px 5px;
+        font-size: 1rem;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+    .btn-secondary:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+</style>

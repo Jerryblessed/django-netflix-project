@@ -1,40 +1,85 @@
 {% load static %}
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>Netflix</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"  crossorigin="anonymous"></script>
-  <script src="main.js"></script>
-  <link rel="stylesheet" href="{% static 'netflix/style.css' %}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Netflix Registration</title>
+  <link rel="stylesheet" href="{% static 'netflix/style.css' %}" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; color: #333;
+    }
+    .wrapper {
+      background-color: #fff; width: 90%; max-width: 500px;
+      padding: 30px; border-radius: 10px; text-align: center;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h2 { color: #e50914; margin-bottom: 20px; }
+    input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; }
+    button { background: #e50914; color: #fff; padding: 12px; width: 100%; border: none; }
+    button:hover { background: #b20710; }
+    .step { display: none; }
+    .step.active { display: block; }
+    .messages { list-style: none; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+    .messages.success { background: #d4edda; color: #155724; }
+    .messages.error { background: #f8d7da; color: #721c24; }
+  </style>
 </head>
 <body>
   <div class="wrapper">
+    <!-- Flash Messages -->
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="messages {{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
 
-    <!-- HEADER -->
-    <header>
-      <div class="netflixLogo">
-        <a id="logo" href="/"><img src="https://github.com/carlosavilae/Netflix-Clone/blob/master/img/logo.PNG?raw=true" alt="Logo Image"></a>
-      </div>      
-      <nav class="main-nav">                
-        <a href="/">Home</a>  
-      </nav>
-      <nav class="sub-nav">
-        <a href="/login">Login</a>
-      </nav>
-    </header>
-    <section class="main-container" >
-      <div class="location" id="home">
-          <div class="box">
-            <form id="registerForm" action="/register" method="POST">
-                {% csrf_token %}
-                {{ register_form.as_p }}
-                <button type="submit">Register</button>
-            </form>
-          </div>
+    <form id="registerForm" method="POST">
+      {% csrf_token %}
+
+      <!-- Step 1 -->
+      <div id="step1" class="step active">
+        <h2>Step 1: What's your first name?</h2>
+        <input type="text" name="firstname" placeholder="First Name" required />
+        <button type="button" onclick="nextStep(2)">Next</button>
       </div>
-    </section>
+
+      <!-- Step 2 -->
+      <div id="step2" class="step">
+        <h2>Step 2: What's your last name?</h2>
+        <input type="text" name="lastname" placeholder="Last Name" required />
+        <button type="button" onclick="nextStep(3)">Next</button>
+      </div>
+
+      <!-- Step 3 -->
+      <div id="step3" class="step">
+        <h2>Step 3: Confirm your email</h2>
+        <input type="email" name="email" placeholder="Email" value="{{ email_autofill }}" required />
+        <button type="button" onclick="nextStep(4)">Next</button>
+      </div>
+
+      <!-- Step 4 -->
+      <div id="step4" class="step">
+        <h2>Step 4: Create a password</h2>
+        <input type="password" name="password" placeholder="Password" required />
+        <input type="password" name="password_conf" placeholder="Confirm Password" required />
+        <button type="submit">Finish</button>
+      </div>
+    </form>
   </div>
+
+  <script>
+    function nextStep(step) {
+      document.querySelectorAll('.step').forEach(div => div.classList.remove('active'));
+      document.getElementById(`step${step}`).classList.add('active');
+    }
+  </script>
 </body>
 </html>

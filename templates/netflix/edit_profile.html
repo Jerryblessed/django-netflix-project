@@ -1,11 +1,82 @@
-<h1>Edit Profile</h1>
-<form method="POST">
-    {% csrf_token %}
-    <label for="profile_name">Profile Name:</label>
-    <input type="text" id="profile_name" name="profile_name" value="{{ profile.name }}" required>
+<div class="container mt-5">
+    <!-- Page Header -->
+    <h1 class="text-center mb-4">Edit Profile</h1>
+    
+    <form method="POST" class="p-4 border rounded shadow-sm bg-light">
+        {% csrf_token %}
+        
+        <!-- Profile Name -->
+        <div class="form-group">
+            <label for="profile_name" class="font-weight-bold">Profile Name:</label>
+            <input type="text" id="profile_name" name="profile_name" class="form-control" 
+                   value="{{ profile.name }}" placeholder="Enter Profile Name" required>
+        </div>
+        
+        <!-- Categories -->
+        <div class="form-group">
+            <label class="font-weight-bold">Select Categories:</label>
+            <div id="categories-container" class="d-flex flex-wrap">
+                {% for category in all_categories %}
+                <div class="category-box {% if category in profile.preferred_categories.all %} selected {% endif %}" 
+                     data-id="{{ category.id }}">
+                    {{ category.name }}
+                </div>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="selected_categories" name="categories" 
+                   value="{{ existing_categories }}">
+        </div>
+        
+        <!-- Buttons -->
+        <div class="d-flex justify-content-between mt-4">
+            <a href="{% url 'delete_profile' profile.id %}" class="btn btn-danger">Delete Profile</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
 
-    <label for="categories">Categories (comma-separated):</label>
-    <input type="text" id="categories" name="categories" value="{{ existing_categories }}" placeholder="e.g. Action, Adventure, Sci-Fi" required>
+<!-- Custom Styles -->
+<style>
+    .category-box {
+        margin: 5px;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        color: #333;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.3s;
+    }
 
-    <button type="submit">Save Changes</button>
-</form>
+    .category-box:hover {
+        background-color:rgb(179, 179, 0);
+        color: white;
+        border-color:rgb(179, 0, 0);
+    }
+
+    .category-box.selected {
+        background-color: rgb(179, 0, 0);
+        color: white;
+        border-color: rgb(179, 0, 0);
+    }
+</style>
+
+<!-- JavaScript for Category Selection -->
+<script>
+    const categoryBoxes = document.querySelectorAll('.category-box');
+    const selectedCategoriesInput = document.getElementById('selected_categories');
+
+    categoryBoxes.forEach(box => {
+        box.addEventListener('click', () => {
+            box.classList.toggle('selected');
+            updateSelectedCategories();
+        });
+    });
+
+    function updateSelectedCategories() {
+        const selectedCategories = Array.from(document.querySelectorAll('.category-box.selected'))
+            .map(box => box.dataset.id);
+        selectedCategoriesInput.value = selectedCategories.join(',');
+    }
+</script>

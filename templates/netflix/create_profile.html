@@ -1,11 +1,117 @@
-<h1>Create a Profile</h1>
-<form method="POST">
-    {% csrf_token %}
-    <label for="profile_name">Profile Name:</label>
-    <input type="text" id="profile_name" name="profile_name" placeholder="Enter Profile Name" required>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Profile</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fff;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+        form {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            font-size: 1rem;
+            margin: 10px 0 5px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+            background-color: #fff;
+            color: #333;
+        }
+        #categories-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .category-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 120px;
+            height: 120px;
+            background-color: #eaeaea;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+            border: 1px solid #ccc;
+        }
+        .category-item:hover {
+            background-color: #d6d6d6;
+            transform: scale(1.05);
+        }
+        .category-item input[type="checkbox"] {
+            display: block;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        .category-item label {
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color:rgb(255, 0, 0);
+            color: #fff;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Create a Profile</h1>
+    <form method="POST">
+        {% csrf_token %}
+        <label for="profile_name">Profile Name:</label>
+        <input type="text" id="profile_name" name="profile_name" placeholder="Enter Profile Name" required>
 
-    <label for="categories">Categories (comma-separated):</label>
-    <input type="text" id="categories" name="categories" placeholder="e.g. Action, Adventure, Sci-Fi" required>
+        <label for="categories">Preferred Categories:</label>
+        <div id="categories-container">
+            {% for category in categories %}
+            <div class="category-item">
+                <input type="checkbox" id="category_{{ category.id }}" name="categories" value="{{ category.id }}">
+                <label for="category_{{ category.id }}">{{ category.name }}</label>
+            </div>
+            {% endfor %}
+        </div>
 
-    <button type="submit">Create Profile</button>
-</form>
+        <button type="submit">Create Profile</button>
+    </form>
+</body>
+</html>

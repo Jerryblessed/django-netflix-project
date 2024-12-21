@@ -1,14 +1,174 @@
-<h1>Subscription</h1>
-{% if subscription.is_active %}
-    <p>Your {{ subscription.plan }} subscription is active until {{ subscription.date_expired }}</p>
-{% else %}
-    <p>Your subscription is inactive. Choose a plan to continue:</p>
-    <form method="POST">
-        {% csrf_token %}
-        {% for plan in plans %}
-            <input type="radio" id="{{ plan.name }}" name="plan" value="{{ plan.name }}">
-            <label for="{{ plan.name }}">{{ plan.name }} - ${{ plan.price|floatformat:2 }}</label><br>
-        {% endfor %}
-        <button type="submit">Subscribe Now</button>
-    </form>
-{% endif %}
+{% load custom_filters %}
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscription Plans</title>
+  <style>
+    /* General Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f8f8;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 95%;
+      max-width: 1000px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #e50914;
+      margin-bottom: 20px;
+    }
+
+    .plans {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .plan {
+      flex: 1;
+      min-width: 280px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      padding: 20px;
+      background-color: #fafafa;
+      text-align: center;
+      transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+
+    .plan.active {
+      border-color: #e50914;
+      background-color: #fcecec;
+    }
+
+    .plan-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #e50914;
+      margin-bottom: 10px;
+    }
+
+    .plan-price {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .plan-features {
+      font-size: 14px;
+      color: #666;
+      text-align: left;
+      margin: 10px auto;
+    }
+
+    button {
+      background-color: #e50914;
+      color: #fff;
+      padding: 10px 15px;
+      border: none;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #b20710;
+    }
+
+    @media (max-width: 768px) {
+      .plans {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Subscription</h1>
+    {% if subscription.is_active %}
+      <p>Your <strong>{{ subscription.plan }}</strong> subscription is active until {{ subscription.date_expired }}</p>
+    {% else %}
+      <p>No active subscription. Choose a plan to continue:</p>
+    {% endif %}
+
+    <div class="plans">
+      {% for plan in plans %}
+      <div class="plan {% if subscription.is_active and subscription.plan == plan.name %}active{% endif %}">
+        <div class="plan-title">{{ plan.name }} Plan</div>
+        <div class="plan-price">${{ plan.price|floatformat:2 }} / month</div>
+        <div class="plan-features">
+          {% if plan.name == "Basic" %}
+            <ul>
+
+            <li>✔ 480p Resolution</li>
+            <li>✔ Access on 1 device</li>
+            <li>✔ Unlimited movies and TV shows</li>
+            </ul>
+
+          {% elif plan.name == "Standard" %}
+            <ul>
+            <li>✔ 1080p Resolution</li>
+            <li>✔ Access on 2 devices simultaneously</li>
+            <li>✔ Download movies for offline viewing</li>
+            </ul>
+          {% elif plan.name == "Premium" %}
+            <ul>
+            <li>✔ 4K+HDR Resolution</li>
+            <li>✔ Access on 4 devices simultaneously</li>
+            <li>✔ Exclusive content</li>
+            <li>✔ Download in high quality</li>
+            </ul>
+          {% endif %}
+        </div>
+
+        {% if not subscription.is_active %}
+          <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="plan" value="{{ plan.name }}">
+            <button type="submit">Subscribe Now</button>
+          </form>
+        {% elif subscription.plan == plan.name %}
+          <p><strong>Active Plan</strong></p>
+        {% elif subscription.plan %}
+          <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="plan" value="{{ plan.name }}">
+            <button type="submit">
+              {% if plan.price > plans|get_by_name:subscription.plan|default:0 %}
+                Upgrade Plan
+              {% else %}
+                Downgrade Plan
+              {% endif %}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

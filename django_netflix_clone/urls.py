@@ -18,7 +18,7 @@ from django.urls import path
 from django.conf import settings            # Add this line
 from django.conf.urls.static import static  # Add this line
 
-from netflix.views import add_to_wishlist, choose_profile_view, edit_profile_view, index_view, landing_view, movie_choice_view, notification_view, profile_view, remove_from_wishlist, view_wishlist # Add this line
+from netflix.views import add_to_wishlist, category_movies_view, category_view, choose_profile_view, delete_profile, edit_profile_view, index_view, landing_view, latest_movies, movie_choice_view, movie_view, notification_view, profile_view, remove_from_wishlist, search_view, settings_view, view_wishlist # Add this line
 from netflix.views import register_view # Add this line
 from netflix.views import login_view # Add this line
 from netflix.views import logout_view # Add this line
@@ -34,7 +34,14 @@ from netflix.views import subscription_view, subscription_callback, subscription
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', landing_view, name='landing'),  # Landing page
+    path('setting/', settings_view, name='settings'),  # Landing page
     path('browse/', index_view, name='home'),  # Home page
+    
+    path('movie/', movie_view, name='movie'),  # Home page
+    path('search/', search_view, name='search'),  # Home page
+    path('category_view/', category_view, name='category_view'),  # Home page
+    path('latest-movies/', latest_movies, name='latest_movies'),
+
     path('watch/', watch_movie_view, name='watch_movie'), # Add this line
     path('register', register_view, name='register'), # Add this line
     path('login', login_view, name='login'), # Add this line
@@ -44,9 +51,12 @@ urlpatterns = [
     
     path('subscription/', subscription_view, name='subscription_view'),
     
+    path('category/<int:category_id>/', category_movies_view, name='category_movies'),
+
     # path('profile/', profile_view, name='profile_view'),
     path('edit_profile/<int:profile_id>/', edit_profile_view, name='profile_view'),
     path('create_profile/', profile_view, name='profile_view'),
+    path('profile/delete/<int:profile_id>/', delete_profile, name='delete_profile'),
     
     path('profile/choose/<int:profile_id>/', choose_profile_view, name='choose_profile'),
     path('notifications/', notification_view, name='notification_view'),

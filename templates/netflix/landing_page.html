@@ -94,15 +94,17 @@
             membership .
           </p>
 
-          <div class="email__form__container">
-            <div class="form__container">
-              <input type="email" class="email__input" placeholder=" " />
-              <label class="email__label">Email Address</label>
-            </div>
-            <button class="primary__button">
-              Get Started <i class="fal fa-chevron-right"></i>
-            </button>
-          </div>
+<div class="email__form__container">
+  <div class="form__container">
+    <input type="email" id="landingEmail" class="email__input" placeholder=" " />
+    <label class="email__label">Email Address</label>
+  </div>
+  <button class="primary__button" onclick="redirectToRegister()">
+    Get Started <i class="fal fa-chevron-right"></i>
+  </button>
+</div>
+
+
         </div>
       </section>
       <section class="features__container">
@@ -390,3 +392,17 @@
 
   </body>
 </html>
+
+
+
+<script>
+  function redirectToRegister() {
+    const email = document.getElementById("landingEmail").value;
+    if (email) {
+      // Redirect to register page with email query parameter
+      window.location.href = `/register?email=${encodeURIComponent(email)}`;
+    } else {
+      alert("Please enter a valid email address.");
+    }
+  }
+</script>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="no-js">
+<!--<![endif]-->
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	
+	<title>Netflix world- Frontend Clone – Watch TV Shows Online, Watch Movies Online</title>
+<meta name="description" content="Video streaming website Netflix clone. Frontend - HTML5, Pure CSS3 [flexbox], JS, OWL Carousel, JQuery |" />
+    <meta name="robots" content="index, follow" />
+	
+	<!-- og properties -->
+	
+	<meta property="og:site_name" content="Rajesh Royal" />
+	<meta property="article:publisher" content="https://www.facebook.com/Rajesh.royal.896/" />
+
+	<meta property="og:image" content="../images/site-image-description.PNG" />
+
+	<!-- -->
+    
+    <link rel="stylesheet" href="../assets/lib/owl.carousel.css" />
+    <script src="{% static 'netflix/assets/lib/jquery-3.5.0.js' %}"></script>
+    <script src="{% static 'netflix/assets/lib/owl.carousel.js' %}"></script>
+
+    <!-- Main script file -->
+    <script src="{% static 'netflix/assets/js/main-script.js' %}"></script>
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.1.0/css/font-awesome.min.css" integrity="sha256-t2kyTgkh+fZJYRET5l9Sjrrl4UDain5jxdbqe8ejO8A=" crossorigin="anonymous" />
+
+    <link rel="stylesheet" href="{% static 'netflix/assets/css/global.css' %}">
+    <link rel="stylesheet" href="{% static 'netflix/assets/css/browse.css' %}">
+    
+    <!-- Inline JavaScript for Description Hover -->
+    <script>
+        document.querySelectorAll('.video-container').forEach(videoContainer => {
+            const video = videoContainer.querySelector('video');
+            const description = videoContainer.querySelector('.video-description');
+
+            // Show description on hover
+            video.addEventListener('mouseover', () => {
+                description.style.display = 'flex';
+                video.muted = false; // Enable sound
+            });
+
+            // Hide description and pause video on mouse out
+            video.addEventListener('mouseout', () => {
+                description.style.display = 'none';
+                video.muted = true; // Mute again
+            });
+        });
+    </script>
+</head>
+
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+            <footer class="mainfooter d-flex direction-column space-between" id=" footer">
+            <div class="container footer-container flex-start">
+                <div class="widgets d-flex space-between">
+                    <div class="first-widget">
+                        <ul>
+                            <li class="list-item">Audio and Subtitles</li>
+                            <li class="list-item">Media Center</li>
+                            <li class="list-item">Privacy</li>
+                            <li class="list-item">Contact us</li>
+                        </ul>
+                    </div>
+                    <div class="second-widget">
+                        <ul>
+                            <li class="list-item">Help Center</li>
+                            <li class="list-item">Cookie</li>
+                            <li class="list-item">Jobs</li>
+                        </ul>
+                    </div>
+                    <div class="third-widget">
+                        <ul>
+                            <li class="list-item">Audio Description</li>
+                            <li class="list-item">Investor Relations</li>
+                            <li class="list-item">Legal Notice</li>
+                        </ul>
+                    </div>
+                    <div class="forth-widget">
+                        <ul>
+                            <li class="list-item">Gift Card</li>
+                            <li class="list-item">Term Of Use</li>
+                            <li class="list-item">Corporate Information</li>
+                        </ul>
+                    </div>
+                </div>
+                <button class="button service">Service Code</button>
+                <p class="copyright">@copyright 2020 Vanilacodes, Inc.</p>
+            </div>
+
+
+        </footer>
+        </div>
+
+        
+    </main>
+
+    <div class="footer-navigation d-flex space-between">
+        <a href="browse.html" class="nav-item active">
+            <i class="fa fa-home" aria-hidden="true"></i> </br>
+            Home
+        </a>
+        <a href="search.html" class="nav-item">
+            <i class="fa fa-search" aria-hidden="true"></i></br>
+            Search
+        </a>
+        <a href="latest.html" class="nav-item">
+            <i class="fa fa-film" aria-hidden="true"></i></br>
+            Latest
+        </a>
+        <a href="user-profile/home.html" class="nav-item">
+            <i class="fa fa-user" aria-hidden="true"></i></br>
+            Account
+        </a>
+    </div>
+
+</html>

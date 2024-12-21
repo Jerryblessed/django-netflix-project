@@ -1,24 +1,38 @@
 from datetime import datetime, timedelta, timezone
 from importlib import invalidate_caches
+# from pyexpat.errors import messages
+from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpResponseRedirect
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.csrf import csrf_exempt
 
 from .forms import RegisterForm
 from .forms import LoginForm
 from .forms import SearchForm
-from .models import Category, Movie, Notification, Profile, Subscription, Wishlist
+from .models import Category, Movie, Notification, Profile, Subscription, WatchHistory, Wishlist
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect
 import requests
 from .models import Subscription
+from django.db.models import Count
+from django.utils.timezone import now
+
 
 import stripe
 
+
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponseRedirect
+from django.shortcuts import render, redirect
+from django.contrib.auth.hashers import make_password
+from .forms import RegisterForm
 
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -47,6 +61,36 @@ STRIPE_SECRET_KEY = "sk_test_51L8i0jDkGOBWyh471bK0YOEg5VQCiSHFsogH4mfytpAXQixAhG
 
 stripe.api_key = STRIPE_SECRET_KEY
 
+@login_required
+def like_movie(request, movie_id):
+    """Toggle like/unlike for a movie for the active profile."""
+    movie = get_object_or_404(Movie, id=movie_id)
+    profile_id = request.session.get('active_profile')  # Get active profile from the session
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    profile = get_object_or_404(Profile, id=profile_id)
+    like, created = Like.objects.get_or_create(profile=profile, movie=movie)
+
+    if not created:
+        like.is_liked = not like.is_liked  # Toggle like status
+        like.save()
+
+    return JsonResponse({
+        'message': 'Movie liked' if like.is_liked else 'Movie unliked',
+        'likes_count': movie.likes_count(),
+    })
+
+@login_required
+def user_liked_movies_view(request):
+    """Display movies liked by the active profile."""
+    profile_id = request.session.get('active_profile')  # Get active profile from the session
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+
+    profile = get_object_or_404(Profile, id=profile_id)
+    liked_movies = Movie.objects.filter(likes__profile=profile, likes__is_liked=True)
+    return render(request, 'netflix/user_liked_movies.html', {'liked_movies': liked_movies})
 
 def like_movie_view(request, movie_id):
     """Like or unlike a movie."""
@@ -54,29 +98,68 @@ def like_movie_view(request, movie_id):
         return JsonResponse({'error': 'You must be logged in to like a movie.'}, status=401)
 
     movie = get_object_or_404(Movie, id=movie_id)
-    like, created = Like.objects.get_or_create(user=request.user, movie=movie)
+    profile_id = request.session.get('active_profile')  # Use the active profile
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+
+    profile = get_object_or_404(Profile, id=profile_id)
+    like, created = Like.objects.get_or_create(profile=profile, movie=movie)
 
     if not created:
-        # If the user already liked the movie, remove the like
+        # If the profile already liked the movie, remove the like
         like.delete()
         return JsonResponse({'message': 'Movie unliked', 'likes_count': Like.objects.filter(movie=movie).count()})
 
     return JsonResponse({'message': 'Movie liked', 'likes_count': Like.objects.filter(movie=movie).count()})
 
-@login_required
-def user_liked_movies_view(request):
-    """Display movies liked by the user."""
-    if not request.user.is_authenticated:
-        return redirect('/login')
-
-    liked_movies = Movie.objects.filter(likes__user=request.user)  # Corrected 'likes' usage
-    return render(request, 'netflix/user_liked_movies.html', {'liked_movies': liked_movies})
 
  
 def landing_view(request):
     """Landing page view."""
     return render(request, 'netflix/landing_page.html')  # Ensure this HTML exists
+ 
+def settings_view(request):
+    """Settings page view."""
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
 
+    if not profiles.exists() and request.method != "POST":
+        return render(request, 'netflix/create_profile.html')
+
+    if request.method == "POST":
+        if len(profiles) < 4:  # Limit to max 4 profiles
+            name = request.POST.get('profile_name')
+            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+            # Validate categories
+            valid_categories = Category.objects.filter(name__in=categories)
+            profile = Profile.objects.create(subscription=subscription, name=name)
+            profile.preferred_categories.set(valid_categories)  # Assign validated categories
+            profile.save()
+
+            Notification.objects.create(
+                user=request.user,
+                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+            )
+
+    return render(request, 'netflix/settings_page.html', {'profiles': profiles})  # Ensure this HTML exists
+
+def watch_movie(request):
+    movie_id = request.GET.get('movie_pk')
+    movie = Movie.objects.get(pk=movie_id)
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.get(pk=profile_id)
+
+    # Update or create watch history
+    watch_history, created = WatchHistory.objects.update_or_create(
+        profile=profile,
+        movie=movie,
+        defaults={'watched_at': now()},
+    )
+
+    # Render or redirect to the movie player
+    return render(request, 'netflix/watch_movie.html', {'movie': movie})
 
 @login_required
 def index_view(request):
@@ -91,6 +174,14 @@ def index_view(request):
 
     profile_id = request.session.get('active_profile')
     profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+    
+    
+    # wishlist
+    wishlist = Wishlist.objects.filter(profile=profile)
+    wishlist_movies = [item.movie for item in wishlist]
+    categories = wishlist_movies and [movie.category for movie in wishlist_movies]
+    tags = wishlist_movies and [tag for movie in wishlist_movies for tag in movie.tags.all()]
+
     if not profile:
         return redirect('profile_view')
 
@@ -101,7 +192,6 @@ def index_view(request):
     }
     resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
 
-    # Fetch preferred and "Others" movies
     preferred_categories = profile.preferred_categories.all()
     search_text = request.GET.get('search_text', '')
     if search_text:
@@ -116,48 +206,274 @@ def index_view(request):
         resolution__in=resolutions
     ).exclude(category__in=preferred_categories)
 
-    # Recommendations based on wishlist
     wishlist_movies = Wishlist.objects.filter(profile=profile).values_list('movie', flat=True)
     recommended_movies = Movie.objects.filter(
         models.Q(category__in=preferred_categories) |
         models.Q(tags__in=Movie.objects.filter(id__in=wishlist_movies).values_list('tags', flat=True))
     ).exclude(id__in=wishlist_movies).distinct()
 
+    most_viewed_movie = Movie.objects.filter(resolution__in=resolutions).order_by('-watch_count').first()
+    most_liked_movie = (
+        Movie.objects.filter(resolution__in=resolutions)
+        .annotate(like_count=Count('likes'))
+        .order_by('-like_count')
+        .first()
+    )
+    # Get the last 10 watched movies for the profile
+    watch_history = WatchHistory.objects.filter(profile=profile).select_related('movie')[:10]
+
+    categories = Category.objects.all()
+    movies_by_category = {
+        category.name: Movie.objects.filter(category=category, resolution__in=resolutions)
+        for category in categories
+    }
+    
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
+
+    if not profiles.exists() and request.method != "POST":
+        return render(request, 'netflix/create_profile.html')
+
+    if request.method == "POST":
+        if len(profiles) < 4:  # Limit to max 4 profiles
+            name = request.POST.get('profile_name')
+            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+            # Validate categories
+            valid_categories = Category.objects.filter(name__in=categories)
+            profile = Profile.objects.create(subscription=subscription, name=name)
+            profile.preferred_categories.set(valid_categories)  # Assign validated categories
+            profile.save()
+
+            Notification.objects.create(
+                user=request.user,
+                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+            )
+            
     return render(request, 'netflix/index.html', {
+        'wishlist': wishlist,
         'movies': movies,
         'other_movies': others,
         'recommended_movies': recommended_movies,
         'active_profile': profile,
         'search_text': search_text,
+        'most_viewed_movie': most_viewed_movie,
+        'most_liked_movie': most_liked_movie,
+        'movies_by_category': movies_by_category,
+        'categories': categories,
+        'watch_history': watch_history,
+        'profiles': profiles
     })
 
 
 @login_required
-def edit_profile_view(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, subscription__user=request.user)
+def movie_view(request):
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or subscription.date_expired <= timezone.now():
+            subscription.is_active = False
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
 
-    if request.method == "POST":
-        name = request.POST.get('profile_name')
-        categories_input = request.POST.get('categories')  # Comma-separated input
-        categories = [cat.strip() for cat in categories_input.split(',')]  # Split and strip spaces
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+    
+    # wishlist
+    wishlist = Wishlist.objects.filter(profile=profile)
+    wishlist_movies = [item.movie for item in wishlist]
+    categories = wishlist_movies and [movie.category for movie in wishlist_movies]
+    tags = wishlist_movies and [tag for movie in wishlist_movies for tag in movie.tags.all()]
 
-        # Validate categories
-        valid_categories = Category.objects.filter(name__in=categories)
-        profile.name = name
-        profile.preferred_categories.set(valid_categories)  # Assign validated categories
-        profile.save()
-
-        Notification.objects.create(
-            user=request.user,
-            message=f"Profile '{profile.name}' was updated with categories: {', '.join(cat.name for cat in valid_categories)}."
-        )
+    if not profile:
         return redirect('profile_view')
 
-    existing_categories = ", ".join(profile.preferred_categories.values_list('name', flat=True))
-    return render(request, 'netflix/edit_profile.html', {
-        'profile': profile,
-        'existing_categories': existing_categories,
+    allowed_resolutions = {
+        'HD': ['HD'],
+        'FHD': ['HD', 'FHD'],
+        'UHD': ['HD', 'FHD', 'UHD'],
+    }
+    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+
+    preferred_categories = profile.preferred_categories.all()
+    search_text = request.GET.get('search_text', '')
+    if search_text:
+        movies = Movie.objects.filter(name__icontains=search_text, resolution__in=resolutions)
+    else:
+        movies = Movie.objects.filter(
+            category__in=preferred_categories,
+            resolution__in=resolutions
+        )
+
+    others = Movie.objects.filter(
+        resolution__in=resolutions
+    ).exclude(category__in=preferred_categories)
+
+    wishlist_movies = Wishlist.objects.filter(profile=profile).values_list('movie', flat=True)
+    recommended_movies = Movie.objects.filter(
+        models.Q(category__in=preferred_categories) |
+        models.Q(tags__in=Movie.objects.filter(id__in=wishlist_movies).values_list('tags', flat=True))
+    ).exclude(id__in=wishlist_movies).distinct()
+
+    most_viewed_movie = Movie.objects.filter(resolution__in=resolutions).order_by('-watch_count').first()
+    most_liked_movie = (
+        Movie.objects.filter(resolution__in=resolutions)
+        .annotate(like_count=Count('likes'))
+        .order_by('-like_count')
+        .first()
+    )
+    # Get the last 10 watched movies for the profile
+    watch_history = WatchHistory.objects.filter(profile=profile).select_related('movie')[:10]
+
+    categories = Category.objects.all()
+    movies_by_category = {
+        category.name: Movie.objects.filter(category=category, resolution__in=resolutions)
+        for category in categories
+    }
+    
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
+
+    if not profiles.exists() and request.method != "POST":
+        return render(request, 'netflix/create_profile.html')
+
+    if request.method == "POST":
+        if len(profiles) < 4:  # Limit to max 4 profiles
+            name = request.POST.get('profile_name')
+            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+            # Validate categories
+            valid_categories = Category.objects.filter(name__in=categories)
+            profile = Profile.objects.create(subscription=subscription, name=name)
+            profile.preferred_categories.set(valid_categories)  # Assign validated categories
+            profile.save()
+
+            Notification.objects.create(
+                user=request.user,
+                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+            )
+            
+    return render(request, 'netflix/movie.html', {
+        'wishlist': wishlist,
+        'movies': movies,
+        'other_movies': others,
+        'recommended_movies': recommended_movies,
+        'active_profile': profile,
+        'search_text': search_text,
+        'most_viewed_movie': most_viewed_movie,
+        'most_liked_movie': most_liked_movie,
+        'movies_by_category': movies_by_category,
+        'categories': categories,
+        'watch_history': watch_history,
+        'profiles': profiles
     })
+
+
+
+@login_required
+def category_movies_view(request, category_id):
+    category = get_object_or_404(Category, id=category_id)
+    movies = Movie.objects.filter(category=category)
+
+    return render(request, 'netflix/category_movies.html', {
+        'category': category,
+        'movies': movies,
+    })
+
+@login_required
+def watch_movie(request, movie_pk):
+    movie = get_object_or_404(Movie, pk=movie_pk)
+    movie.watch_count = models.F('watch_count') + 1
+    movie.save(update_fields=['watch_count'])
+
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id).first()
+    if not profile:
+        return redirect('profile_view')
+
+    # Update or create a watch history entry
+    WatchHistory.objects.update_or_create(
+        profile=profile,
+        movie=movie,
+        defaults={'watched_at': timezone.now()},
+    )
+
+    return render(request, 'netflix/watch_movie.html', {'movie': movie})
+
+
+@login_required
+def watch_movie_view(request):
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or subscription.date_expired <= timezone.now():
+            subscription.is_active = False
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
+
+    allowed_resolutions = {
+        'HD': ['HD'],
+        'FHD': ['HD', 'FHD'],
+        'UHD': ['HD', 'FHD', 'UHD'],
+    }
+    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+
+    if not profile:
+        return redirect('profile_selection')
+
+    movie_pk = request.GET.get('movie_pk')
+    movie = get_object_or_404(Movie, pk=movie_pk, resolution__in=resolutions)
+
+    # Increment the watch count
+    movie.watch_count = models.F('watch_count') + 1
+    movie.save(update_fields=['watch_count'])
+
+    # Update or create watch history
+    watch_history, created = WatchHistory.objects.update_or_create(
+        profile=profile,
+        movie=movie,
+        defaults={'watched_at': timezone.now()},
+    )
+    
+    profile.movies_watched = models.F('movies_watched') + 1
+    profile.save(update_fields=['movies_watched'])
+
+    # Check if the profile liked the movie
+    user_liked = Like.objects.filter(profile=profile, movie=movie, is_liked=True).exists()
+
+    return render(request, 'netflix/watch_movie.html', {
+        'movie': movie,
+        'user_liked': user_liked,
+        'watch_count': movie.watch_count,
+    })
+
+
+@login_required
+def notification_view(request):
+    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'netflix/notifications.html', {'notifications': notifications})
+
+
+def send_welcome_notification(user):
+    """Send a welcome notification to the user."""
+    Notification.objects.create(
+        user=user,
+        message=f"Welcome, {user.username}! Your subscription is active until {user.subscription.date_expired}. Enjoy our services!"
+    )
+
+def send_renewal_notification(user):
+    """Send a notification after subscription renewal."""
+    Notification.objects.create(
+        user=user,
+        message=f"Thank you for renewing, {user.username}! Your subscription is extended until {user.subscription.date_expired}."
+    )
 
 
 @login_required
@@ -202,36 +518,7 @@ def import_profiles_view(request):
     return render(request, 'netflix/import_profiles.html')
 
 
-@login_required
-def watch_movie_view(request):
-    try:
-        subscription = Subscription.objects.get(user=request.user)
-        if not subscription.is_active or subscription.date_expired <= timezone.now():
-            subscription.is_active = False
-            subscription.save()
-            return redirect('subscription_view')
-    except Subscription.DoesNotExist:
-        return redirect('subscription_view')
 
-    # Get allowed resolutions
-    allowed_resolutions = {
-        'HD': ['HD'],
-        'FHD': ['HD', 'FHD'],
-        'UHD': ['HD', 'FHD', 'UHD'],
-    }
-    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
-
-    # Validate movie access
-    movie_pk = request.GET.get('movie_pk')
-    movie = get_object_or_404(Movie, pk=movie_pk, resolution__in=resolutions)
-
-    return render(request, 'netflix/watch_movie.html', {'movie': movie})
-
-
-@login_required
-def notification_view(request):
-    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'netflix/notifications.html', {'notifications': notifications})
 
 def generate_subscription_notifications(subscription):
     # Check if a notification for this event already exists
@@ -247,64 +534,113 @@ def generate_subscription_notifications(subscription):
 
 @login_required
 def profile_view(request):
+    # category
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or subscription.date_expired <= timezone.now():
+            subscription.is_active = False
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
+
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+
+    allowed_resolutions = {
+        'HD': ['HD'],
+        'FHD': ['HD', 'FHD'],
+        'UHD': ['HD', 'FHD', 'UHD'],
+    }
+    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+
+    categories = Category.objects.all()
+    movies_by_category = {
+        category.name: Movie.objects.filter(category=category, resolution__in=resolutions)
+        for category in categories
+    }
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
+
+
+    # end category
     subscription = get_object_or_404(Subscription, user=request.user)
     profiles = subscription.profiles.all()
 
     if not profiles.exists() and request.method != "POST":
-        return render(request, 'netflix/create_profile.html')
+        return render(request, 'netflix/create_profile.html', {'profiles': profiles, 'movies_by_category': movies_by_category,'categories': categories,})
 
     if request.method == "POST":
         if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories')  # Comma-separated input
-            categories = [cat.strip() for cat in categories_input.split(',')]  # Split and strip spaces
+            name = request.POST.get('profile_name')  # Retrieve the profile name
+            categories_ids = request.POST.getlist('categories')  # Retrieve selected category IDs as a list
+            valid_categories = Category.objects.filter(id__in=categories_ids)  # Validate category IDs
 
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
+            # Create the profile and assign the selected categories
             profile = Profile.objects.create(subscription=subscription, name=name)
             profile.preferred_categories.set(valid_categories)  # Assign validated categories
             profile.save()
 
+            # Create a notification for the user
             Notification.objects.create(
                 user=request.user,
                 message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
             )
         return redirect('index')
 
-    return render(request, 'netflix/profile.html', {'profiles': profiles})
+    return render(request, 'netflix/profile.html', {'profiles': profiles, 'movies_by_category': movies_by_category,'categories': categories,})
 
 
 @login_required
 def choose_profile_view(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, subscription__user=request.user)
     request.session['active_profile'] = profile.id
-    return redirect('index')    
-
-
+    return redirect('home')    
 
 def register_view(request):
-    """Registration view."""
-    if request.method == 'GET':
-        # executed to render the registration page
-        register_form = RegisterForm()
-        return render(request, 'netflix/register.html', locals())
-    else:
-        # executed on registration form submission
-        register_form = RegisterForm(request.POST)
-        if register_form.is_valid():
-            User.objects.create(
-                first_name=request.POST.get('firstname'),
-                last_name=request.POST.get('lastname'),
-                email=request.POST.get('email'),
-                username=request.POST.get('email'),
-                password=make_password(request.POST.get('password'))
-            )
-            return HttpResponseRedirect('/login')
-        return render(request, 'netflix/register.html', locals())
+    """Registration View with Email Autofill and Messages."""
+    email_autofill = request.GET.get('email', '')  # Fetch email from landing page query param
+    
+    if request.user.is_authenticated:
+        logout(request)
 
+    if request.method == 'POST':
+        firstname = request.POST.get('firstname')
+        lastname = request.POST.get('lastname')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        password_conf = request.POST.get('password_conf')
+
+        # Validation
+        if password != password_conf:
+            messages.error(request, "Passwords do not match!")
+            return render(request, 'netflix/register.html', {'email_autofill': email})
+        
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "This email is already registered!")
+            return render(request, 'netflix/register.html', {'email_autofill': email})
+        
+        # Create user
+        user = User.objects.create(
+            first_name=firstname,
+            last_name=lastname,
+            email=email,
+            username=email,
+            password=make_password(password)
+        )
+        messages.success(request, "Registration successful! Redirecting...")
+        
+        # Auto-login and redirect
+        login(request, user)
+        return redirect('/index')
+
+    return render(request, 'netflix/register.html', {'email_autofill': email_autofill})
 
 def login_view(request):
     """Login view."""
+    if request.user.is_authenticated:
+        logout(request)
+
     if request.method == 'GET':
         # executed to render the login page
         login_form = LoginForm()
@@ -372,14 +708,22 @@ STRIPE_SECRET_KEY = "sk_test_51L8i0jDkGOBWyh471bK0YOEg5VQCiSHFsogH4mfytpAXQixAhG
 def subscription_failure(request):
     """Show the subscription failure page."""
     return render(request, 'netflix/subscription_failure.html')
+
 @login_required
 def subscription_view(request):
     user_subscription, created = Subscription.objects.get_or_create(user=request.user)
-    plans = [
+
+    # Check if subscription has expired
+    if user_subscription.date_expired and user_subscription.date_expired < timezone.now():
+        user_subscription.is_active = False
+        user_subscription.plan = None  # Reset plan
+        user_subscription.save()
+
+    plans = sorted([
         {'name': 'Basic', 'price': 500},  # Example prices in cents
         {'name': 'Standard', 'price': 1000},
         {'name': 'Premium', 'price': 1500},
-    ]
+    ], key=lambda x: x['price'])
 
     if request.method == "POST":
         plan = request.POST.get('plan')
@@ -401,7 +745,10 @@ def subscription_view(request):
                     success_url=request.build_absolute_uri('/subscription/callback/'),
                     cancel_url=request.build_absolute_uri('/subscription/failure/'),
                 )
+                # Update subscription details
                 user_subscription.plan = plan
+                user_subscription.is_active = True
+                user_subscription.date_expired = timezone.now() + timezone.timedelta(days=30)
                 user_subscription.save()
                 return redirect(session.url, code=303)
 
@@ -491,3 +838,242 @@ def remove_from_wishlist(request, wishlist_id):
     )
 
     return redirect('view_wishlist')
+
+
+
+@login_required
+def manage_profiles_view(request):
+    """Manage user profiles (up to 4 per subscription)."""
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active:
+            return redirect('subscription_view')
+
+        profiles = subscription.profiles.all()
+        if request.method == "POST":
+            if "delete_profile" in request.POST:
+                profile_id = request.POST.get("profile_id")
+                Profile.objects.filter(id=profile_id, subscription=subscription).delete()
+                messages.success(request, "Profile deleted successfully.")
+            elif len(profiles) < 4 and "profile_name" in request.POST:
+                profile_name = request.POST.get("profile_name")
+                if profile_name:
+                    Profile.objects.create(subscription=subscription, name=profile_name)
+                    messages.success(request, "Profile added successfully.")
+
+        return render(request, 'netflix/manage_profiles.html', {'profiles': profiles})
+
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
+
+
+
+    
+@login_required
+def renew_subscription(request):
+    """Renew the user's subscription."""
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        subscription.date_expired += timezone.timedelta(days=30)  # Extend by 30 days
+        subscription.is_active = True
+        subscription.save()
+
+        send_renewal_notification(request.user)  # Notify user of renewal
+        messages.success(request, "Subscription renewed successfully.")
+        return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        messages.error(request, "No active subscription found.")
+        return redirect('subscription_view')
+
+@login_required
+def delete_profile(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id)
+
+    if request.method == 'POST':
+        profile.delete()
+        messages.success(request, 'Profile deleted successfully.')
+        return redirect('index')  # Redirect to appropriate page
+
+    return render(request, 'netflix/delete_profile_confirm.html', {'profile': profile})
+
+
+
+@login_required
+def edit_profile_view(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, subscription__user=request.user)
+    all_categories = Category.objects.all()
+
+    if request.method == "POST":
+        name = request.POST.get('profile_name')
+        categories_input = request.POST.get('categories')  # Comma-separated IDs
+        category_ids = [int(cat_id) for cat_id in categories_input.split(',') if cat_id.isdigit()]
+        
+        # Validate categories
+        valid_categories = Category.objects.filter(id__in=category_ids)
+        profile.name = name
+        profile.preferred_categories.set(valid_categories)  # Assign validated categories
+        profile.save()
+
+        Notification.objects.create(
+            user=request.user,
+            message=f"Profile '{profile.name}' was updated with categories: {', '.join(cat.name for cat in valid_categories)}."
+        )
+        return redirect('profile_view')
+
+    existing_categories = ",".join(map(str, profile.preferred_categories.values_list('id', flat=True)))
+    return render(request, 'netflix/edit_profile.html', {
+        'profile': profile,
+        'all_categories': all_categories,
+        'existing_categories': existing_categories,
+    })
+
+
+
+@login_required
+def search_view(request):
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
+
+    if not profiles.exists() and request.method != "POST":
+        return render(request, 'netflix/create_profile.html')
+
+    if request.method == "POST":
+        if len(profiles) < 4:  # Limit to max 4 profiles
+            name = request.POST.get('profile_name')
+            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+            # Validate categories
+            valid_categories = Category.objects.filter(name__in=categories)
+            profile = Profile.objects.create(subscription=subscription, name=name)
+            profile.preferred_categories.set(valid_categories)  # Assign validated categories
+            profile.save()
+
+            Notification.objects.create(
+                user=request.user,
+                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+            )
+    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+
+
+    search_text = request.GET.get('search_text', '')
+    results = []
+    
+    if search_text:
+        results = Movie.objects.filter(name__icontains=search_text)  # Adjust filter as needed
+    
+    return render(request, 'netflix/search.html', {'search_text': search_text, 'results': results, 'profiles': profiles, 'notifications': notifications})
+
+@login_required
+def category_view(request):
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or subscription.date_expired <= timezone.now():
+            subscription.is_active = False
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
+
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+
+    allowed_resolutions = {
+        'HD': ['HD'],
+        'FHD': ['HD', 'FHD'],
+        'UHD': ['HD', 'FHD', 'UHD'],
+    }
+    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+
+    categories = Category.objects.all()
+    movies_by_category = {
+        category.name: Movie.objects.filter(category=category, resolution__in=resolutions)
+        for category in categories
+    }
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
+
+    if not profiles.exists() and request.method != "POST":
+        return render(request, 'netflix/create_profile.html')
+
+    if request.method == "POST":
+        if len(profiles) < 4:  # Limit to max 4 profiles
+            name = request.POST.get('profile_name')
+            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+            # Validate categories
+            valid_categories = Category.objects.filter(name__in=categories)
+            profile = Profile.objects.create(subscription=subscription, name=name)
+            profile.preferred_categories.set(valid_categories)  # Assign validated categories
+            profile.save()
+
+            Notification.objects.create(
+                user=request.user,
+                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+            )
+    
+    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+
+
+    
+    return render(request, 'netflix/category_view.html', { 'profiles': profiles, 'notifications': notifications, 'categories': categories}, )
+
+
+
+
+def latest_movies(request):
+    
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or subscription.date_expired <= timezone.now():
+            subscription.is_active = False
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
+
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+
+    allowed_resolutions = {
+        'HD': ['HD'],
+        'FHD': ['HD', 'FHD'],
+        'UHD': ['HD', 'FHD', 'UHD'],
+    }
+    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+
+    categories = Category.objects.all()
+    movies_by_category = {
+        category.name: Movie.objects.filter(category=category, resolution__in=resolutions)
+        for category in categories
+    }
+    subscription = get_object_or_404(Subscription, user=request.user)
+    profiles = subscription.profiles.all()
+
+    if not profiles.exists() and request.method != "POST":
+        return render(request, 'netflix/create_profile.html')
+
+    if request.method == "POST":
+        if len(profiles) < 4:  # Limit to max 4 profiles
+            name = request.POST.get('profile_name')
+            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+            # Validate categories
+            valid_categories = Category.objects.filter(name__in=categories)
+            profile = Profile.objects.create(subscription=subscription, name=name)
+            profile.preferred_categories.set(valid_categories)  # Assign validated categories
+            profile.save()
+
+            Notification.objects.create(
+                user=request.user,
+                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+            )
+    
+    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+
+    
+    # Fetch the latest 10 movies
+    movies = Movie.objects.order_by('-date_created')[:10]
+    return render(request, 'netflix/latest_movies.html', { 'profiles': profiles, 'notifications': notifications, 'movies_by_category': movies_by_category,'categories': categories, 'movies': movies})

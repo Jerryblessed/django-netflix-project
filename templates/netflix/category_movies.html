@@ -1,0 +1,13 @@
+
+
+<h1>{{ category.name }}</h1>
+<div style="display: flex; flex-wrap: wrap;">
+    {% for movie in movies %}
+    <div style="margin: 10px;">
+        <img src="{{ movie.preview_image.url }}" alt="{{ movie.name }}" style="width: 150px;">
+        <h3>{{ movie.name }}</h3>
+        <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}">Watch Now</a>
+        <a href="{% url 'add_to_wishlist' movie.id %}">Add to Wishlist</a>
+    </div>
+    {% endfor %}
+</div>
