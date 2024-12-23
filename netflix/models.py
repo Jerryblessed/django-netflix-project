@@ -122,14 +122,13 @@ def subscription_post_save(sender, instance, **kwargs):
 
 
 class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="notifications")
     message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(default=timezone.now())
 
     def __str__(self):
-        return f"Notification for {self.user.username} - {'Read' if self.is_read else 'Unread'}"
-    
+        return f"Notification for {self.profile.name}"
     
 class Wishlist(models.Model):
     profile = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='wishlists')

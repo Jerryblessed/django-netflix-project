@@ -18,7 +18,7 @@ from django.urls import path
 from django.conf import settings            # Add this line
 from django.conf.urls.static import static  # Add this line
 
-from netflix.views import add_to_wishlist, category_movies_view, category_view, choose_profile_view, delete_profile, edit_profile_view, index_view, landing_view, latest_movies, movie_choice_view, movie_view, notification_view, profile_view, remove_from_wishlist, search_view, settings_view, view_wishlist # Add this line
+from netflix.views import add_to_wishlist, category_movies_view, category_view, change_email, change_password, choose_profile_view, delete_profile, edit_profile_view, index_view, landing_view, latest_movies, mark_notification_as_read, movie_choice_view, movie_view, notification_view, profile_notifications, profile_view, remove_from_wishlist, search_view, settings_view, view_wishlist # Add this line
 from netflix.views import register_view # Add this line
 from netflix.views import login_view # Add this line
 from netflix.views import logout_view # Add this line
@@ -54,6 +54,13 @@ urlpatterns = [
     path('category/<int:category_id>/', category_movies_view, name='category_movies'),
 
     # path('profile/', profile_view, name='profile_view'),
+    
+    
+    
+    path('settings/change-email/', change_email, name='change_email'),
+    path('settings/change-password/', change_password, name='change_password'),
+    
+    
     path('edit_profile/<int:profile_id>/', edit_profile_view, name='profile_view'),
     path('create_profile/', profile_view, name='profile_view'),
     path('profile/delete/<int:profile_id>/', delete_profile, name='delete_profile'),
@@ -69,8 +76,9 @@ urlpatterns = [
     path('wishlist/', view_wishlist, name='view_wishlist'),
     path('wishlist/add/<int:movie_id>/', add_to_wishlist, name='add_to_wishlist'),
     path('wishlist/remove/<int:wishlist_id>/', remove_from_wishlist, name='remove_from_wishlist'),
+    path('profile/<int:profile_id>/notifications/', profile_notifications, name='profile_notifications'),
 
-
+    path('notifications/mark-read/<int:notification_id>/', mark_notification_as_read, name='mark_notification_as_read'),
 
 ]
 # Add the lines below

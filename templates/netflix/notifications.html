@@ -1,8 +1,131 @@
-<h2>Notifications</h2>
-<ul>
-  {% for notification in notifications %}
-    <li class="{% if not notification.is_read %}unread{% endif %}">
-      {{ notification.message }} - {{ notification.created_at }}
+
+
+<div class="notifications__container">
+
+  <h2 class="notifications__title">Notification</h2>
+  <ul class="notifications__list">
+    {% for notification in notifications %}
+    <li class="notification {% if not notification.is_read %}notification--unread{% endif %}" data-id="{{ notification.id }}">
+      <div class="notification__content">
+        <p class="notification__message">{{ notification.message }}</p>
+        <span class="notification__time">{{ notification.created_at|date:"M d, Y h:i A" }}</span>
+      </div>
+      {% if not notification.is_read %}
+        <button class="notification__mark-read" onclick="markAsRead({{ notification.id }})">Mark as read</button>
+      {% endif %}
     </li>
-  {% endfor %}
-</ul>
+
+    {% empty %}
+      <li class="notification notification--empty">
+        <p class="notification__message">You have no notifications.</p>
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<style>
+.notifications__container {
+  max-width: 600px;
+  margin: 5mm auto;
+  padding: 1rem;
+  background-color: #141414;
+  border-radius: 8px;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.notifications__title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #e50914;
+}
+
+.notifications__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background-color: #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.3s ease;
+}
+
+.notification--unread {
+  background-color: #e50914;
+}
+
+.notification__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification__message {
+  font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.notification__time {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.notification__mark-read {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  color: #fff;
+  background-color: #666;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, opacity 0.5s ease;
+}
+
+.notification__mark-read:hover {
+  background-color: #444;
+}
+
+.notification--empty {
+  text-align: center;
+  background-color: #222;
+}
+</style>
+
+<script>
+function markAsRead(notificationId) {
+  const notificationElement = document.querySelector(`.notification[data-id="${notificationId}"]`);
+  const markReadButton = notificationElement.querySelector('.notification__mark-read');
+
+  fetch(`/notifications/mark-read/${notificationId}/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+      'Content-Type': 'application/json',
+    },
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.status === 'success') {
+        // Add fade-out animation to the button
+        markReadButton.style.transition = 'opacity 0.5s ease';
+        markReadButton.style.opacity = 0;
+
+        setTimeout(() => {
+          markReadButton.remove(); // Remove button after animation
+          notificationElement.classList.remove('notification--unread');
+        }, 500);
+      } else {
+        console.error('Error:', data.message);
+      }
+    })
+    .catch((error) => console.error('Error:', error));
+}
+</script>

@@ -53,6 +53,11 @@ from .models import Subscription
 
 import requests
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
+from .forms import EmailChangeForm  # Custom form for email change
 
 
 PAGE_SIZE_PER_CATEGORY = 20
@@ -60,6 +65,53 @@ PAGE_SIZE_PER_CATEGORY = 20
 STRIPE_SECRET_KEY = "sk_test_51L8i0jDkGOBWyh471bK0YOEg5VQCiSHFsogH4mfytpAXQixAhGhIR47WImddmQya938dtTrpIadfnl3Aws8JVGys000VEv2oni"  # Replace with your Stripe secret key
 
 stripe.api_key = STRIPE_SECRET_KEY
+
+
+
+def send_welcome_notification(subscription):
+    """Send a welcome notification to the user if no profiles exist."""
+    message = f"Welcome! Your subscription is active until {subscription.date_expired}. Enjoy our services!"
+    Notification.objects.create(
+        subscription=subscription,
+        message=message
+    )
+
+def send_renewal_notification(profile):
+    """Send a notification after subscription renewal."""
+    Notification.objects.create(
+        profile=profile,
+        message=f"Thank you for renewing, {profile.name}! Your subscription is extended until {profile.subscription.date_expired}."
+    )
+
+
+def generate_subscription_notifications(subscription):
+    # Check if a notification for this event already exists
+    if not Notification.objects.filter(user=subscription.user, message__icontains="Your subscription expires").exists():
+        expiration_message = f"Your subscription expires on {subscription.date_expired.strftime('%Y-%m-%d')}."
+        Notification.objects.create(user=subscription.user, message=expiration_message)
+
+    days_left = (subscription.date_expired - timezone.now()).days
+    if days_left <= 3 and not Notification.objects.filter(user=subscription.user, message__icontains="about to expire").exists():
+        reminder_message = "Your subscription is about to expire in 3 days. Renew now to continue enjoying our service."
+        Notification.objects.create(user=subscription.user, message=reminder_message)
+
+@login_required
+def renew_subscription(request):
+    """Renew the user's subscription."""
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        subscription.date_expired += timezone.timedelta(days=30)  # Extend by 30 days
+        subscription.is_active = True
+        subscription.save()
+
+        send_renewal_notification(request.user)  # Notify user of renewal
+        messages.success(request, "Subscription renewed successfully.")
+        return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        messages.error(request, "No active subscription found.")
+        return redirect('subscription_view')
+
+
 
 @login_required
 def like_movie(request, movie_id):
@@ -125,41 +177,38 @@ def settings_view(request):
 
     if not profiles.exists() and request.method != "POST":
         return render(request, 'netflix/create_profile.html')
-
-    if request.method == "POST":
-        if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
-            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
-
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
-            profile = Profile.objects.create(subscription=subscription, name=name)
-            profile.preferred_categories.set(valid_categories)  # Assign validated categories
-            profile.save()
-
-            Notification.objects.create(
-                user=request.user,
-                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
-            )
-
-    return render(request, 'netflix/settings_page.html', {'profiles': profiles})  # Ensure this HTML exists
-
-def watch_movie(request):
-    movie_id = request.GET.get('movie_pk')
-    movie = Movie.objects.get(pk=movie_id)
     profile_id = request.session.get('active_profile')
-    profile = Profile.objects.get(pk=profile_id)
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
 
-    # Update or create watch history
-    watch_history, created = WatchHistory.objects.update_or_create(
-        profile=profile,
-        movie=movie,
-        defaults={'watched_at': now()},
-    )
 
-    # Render or redirect to the movie player
-    return render(request, 'netflix/watch_movie.html', {'movie': movie})
+    return render(request, 'netflix/settings_page.html', {
+        'profiles': profiles,
+        'notifications':notifications
+                                                          })  # Ensure this HTML exists
+
+
+
+
+# def watch_movie(request):
+#     movie_id = request.GET.get('movie_pk')
+#     movie = Movie.objects.get(pk=movie_id)
+#     profile_id = request.session.get('active_profile')
+#     profile = Profile.objects.get(pk=profile_id)
+
+#     # Update or create watch history
+#     watch_history, created = WatchHistory.objects.update_or_create(
+#         profile=profile,
+#         movie=movie,
+#         defaults={'watched_at': now()},
+#     )
+
+#     # Render or redirect to the movie player
+#     return render(request, 'netflix/watch_movie.html', {'movie': movie})
 
 @login_required
 def index_view(request):
@@ -175,7 +224,14 @@ def index_view(request):
     profile_id = request.session.get('active_profile')
     profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
     
-    
+    if not profile:
+        return redirect('profile_view')
+
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+
+
     # wishlist
     wishlist = Wishlist.objects.filter(profile=profile)
     wishlist_movies = [item.movie for item in wishlist]
@@ -194,6 +250,7 @@ def index_view(request):
 
     preferred_categories = profile.preferred_categories.all()
     search_text = request.GET.get('search_text', '')
+    
     if search_text:
         movies = Movie.objects.filter(name__icontains=search_text, resolution__in=resolutions)
     else:
@@ -234,22 +291,6 @@ def index_view(request):
     if not profiles.exists() and request.method != "POST":
         return render(request, 'netflix/create_profile.html')
 
-    if request.method == "POST":
-        if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
-            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
-
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
-            profile = Profile.objects.create(subscription=subscription, name=name)
-            profile.preferred_categories.set(valid_categories)  # Assign validated categories
-            profile.save()
-
-            Notification.objects.create(
-                user=request.user,
-                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
-            )
             
     return render(request, 'netflix/index.html', {
         'wishlist': wishlist,
@@ -263,7 +304,9 @@ def index_view(request):
         'movies_by_category': movies_by_category,
         'categories': categories,
         'watch_history': watch_history,
-        'profiles': profiles
+        'profiles': profiles,
+        'notifications': notifications,
+        'profile':profile
     })
 
 
@@ -281,6 +324,14 @@ def movie_view(request):
     profile_id = request.session.get('active_profile')
     profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
     
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+    
+
     # wishlist
     wishlist = Wishlist.objects.filter(profile=profile)
     wishlist_movies = [item.movie for item in wishlist]
@@ -339,22 +390,7 @@ def movie_view(request):
     if not profiles.exists() and request.method != "POST":
         return render(request, 'netflix/create_profile.html')
 
-    if request.method == "POST":
-        if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
-            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
 
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
-            profile = Profile.objects.create(subscription=subscription, name=name)
-            profile.preferred_categories.set(valid_categories)  # Assign validated categories
-            profile.save()
-
-            Notification.objects.create(
-                user=request.user,
-                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
-            )
             
     return render(request, 'netflix/movie.html', {
         'wishlist': wishlist,
@@ -368,7 +404,9 @@ def movie_view(request):
         'movies_by_category': movies_by_category,
         'categories': categories,
         'watch_history': watch_history,
-        'profiles': profiles
+        'profiles': profiles,
+        'profile':profile,
+        'notifications':notifications
     })
 
 
@@ -383,25 +421,25 @@ def category_movies_view(request, category_id):
         'movies': movies,
     })
 
-@login_required
-def watch_movie(request, movie_pk):
-    movie = get_object_or_404(Movie, pk=movie_pk)
-    movie.watch_count = models.F('watch_count') + 1
-    movie.save(update_fields=['watch_count'])
+# @login_required
+# def watch_movie(request, movie_pk):
+#     movie = get_object_or_404(Movie, pk=movie_pk)
+#     movie.watch_count = models.F('watch_count') + 1
+#     movie.save(update_fields=['watch_count'])
 
-    profile_id = request.session.get('active_profile')
-    profile = Profile.objects.filter(id=profile_id).first()
-    if not profile:
-        return redirect('profile_view')
+#     profile_id = request.session.get('active_profile')
+#     profile = Profile.objects.filter(id=profile_id).first()
+#     if not profile:
+#         return redirect('profile_view')
 
-    # Update or create a watch history entry
-    WatchHistory.objects.update_or_create(
-        profile=profile,
-        movie=movie,
-        defaults={'watched_at': timezone.now()},
-    )
+#     # Update or create a watch history entry
+#     WatchHistory.objects.update_or_create(
+#         profile=profile,
+#         movie=movie,
+#         defaults={'watched_at': timezone.now()},
+#     )
 
-    return render(request, 'netflix/watch_movie.html', {'movie': movie})
+#     return render(request, 'netflix/watch_movie.html', {'movie': movie})
 
 
 @login_required
@@ -424,6 +462,14 @@ def watch_movie_view(request):
 
     profile_id = request.session.get('active_profile')
     profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+
+    # Get active profile from the session
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
 
     if not profile:
         return redirect('profile_selection')
@@ -452,28 +498,14 @@ def watch_movie_view(request):
         'movie': movie,
         'user_liked': user_liked,
         'watch_count': movie.watch_count,
+        'profile':profile,
+        'notifications':notifications
     })
 
 
-@login_required
-def notification_view(request):
-    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'netflix/notifications.html', {'notifications': notifications})
 
 
-def send_welcome_notification(user):
-    """Send a welcome notification to the user."""
-    Notification.objects.create(
-        user=user,
-        message=f"Welcome, {user.username}! Your subscription is active until {user.subscription.date_expired}. Enjoy our services!"
-    )
 
-def send_renewal_notification(user):
-    """Send a notification after subscription renewal."""
-    Notification.objects.create(
-        user=user,
-        message=f"Thank you for renewing, {user.username}! Your subscription is extended until {user.subscription.date_expired}."
-    )
 
 
 @login_required
@@ -483,53 +515,41 @@ def delete_profile_view(request, profile_id):
     profile.delete()
 
     Notification.objects.create(
-        user=request.user,
+        profile=profile,
         message=f"Profile '{profile_name}' was deleted."
     )
     return redirect('profile_view')
 
+### red
+# @login_required
+# def import_profiles_view(request):
+#     if request.method == "POST" and request.FILES['csv_file']:
+#         csv_file = request.FILES['csv_file']
 
-@login_required
-def import_profiles_view(request):
-    if request.method == "POST" and request.FILES['csv_file']:
-        csv_file = request.FILES['csv_file']
+#         # Read CSV file
+#         import csv
+#         decoded_file = csv_file.read().decode('utf-8').splitlines()
+#         reader = csv.DictReader(decoded_file)
 
-        # Read CSV file
-        import csv
-        decoded_file = csv_file.read().decode('utf-8').splitlines()
-        reader = csv.DictReader(decoded_file)
+#         for row in reader:
+#             name = row['name']
+#             categories = row['categories'].split(',')
+#             profile = Profile.objects.create(
+#                 subscription=Subscription.objects.get(user=request.user),
+#                 name=name
+#             )
+#             profile.preferred_categories.set(categories)
+#             profile.save()
 
-        for row in reader:
-            name = row['name']
-            categories = row['categories'].split(',')
-            profile = Profile.objects.create(
-                subscription=Subscription.objects.get(user=request.user),
-                name=name
-            )
-            profile.preferred_categories.set(categories)
-            profile.save()
+#         Notification.objects.create(
+#             user=request.user,
+#             message="Profiles were imported successfully via CSV."
+#         )
+#         return redirect('profile_view')
 
-        Notification.objects.create(
-            user=request.user,
-            message="Profiles were imported successfully via CSV."
-        )
-        return redirect('profile_view')
-
-    return render(request, 'netflix/import_profiles.html')
-
-
+#     return render(request, 'netflix/import_profiles.html')
 
 
-def generate_subscription_notifications(subscription):
-    # Check if a notification for this event already exists
-    if not Notification.objects.filter(user=subscription.user, message__icontains="Your subscription expires").exists():
-        expiration_message = f"Your subscription expires on {subscription.date_expired.strftime('%Y-%m-%d')}."
-        Notification.objects.create(user=subscription.user, message=expiration_message)
-
-    days_left = (subscription.date_expired - timezone.now()).days
-    if days_left <= 3 and not Notification.objects.filter(user=subscription.user, message__icontains="about to expire").exists():
-        reminder_message = "Your subscription is about to expire in 3 days. Renew now to continue enjoying our service."
-        Notification.objects.create(user=subscription.user, message=reminder_message)
 
 
 @login_required
@@ -568,6 +588,7 @@ def profile_view(request):
     profiles = subscription.profiles.all()
 
     if not profiles.exists() and request.method != "POST":
+        
         return render(request, 'netflix/create_profile.html', {'profiles': profiles, 'movies_by_category': movies_by_category,'categories': categories,})
 
     if request.method == "POST":
@@ -583,11 +604,10 @@ def profile_view(request):
 
             # Create a notification for the user
             Notification.objects.create(
-                user=request.user,
+                profile=profile,
                 message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
             )
         return redirect('index')
-
     return render(request, 'netflix/profile.html', {'profiles': profiles, 'movies_by_category': movies_by_category,'categories': categories,})
 
 
@@ -702,7 +722,6 @@ def movie_choice_view(request):
         return redirect('subscription_view')
 
 
-STRIPE_SECRET_KEY = "sk_test_51L8i0jDkGOBWyh471bK0YOEg5VQCiSHFsogH4mfytpAXQixAhGhIR47WImddmQya938dtTrpIadfnl3Aws8JVGys000VEv2oni"  # Replace with your Stripe secret key
 
 @login_required
 def subscription_failure(request):
@@ -793,10 +812,19 @@ def view_wishlist(request):
         models.Q(tags__in=tags)
     ).exclude(id__in=[movie.id for movie in wishlist_movies]).distinct()
 
+    # Get active profile from the session
+    profile_id = request.session.get('active_profile')
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+
     # Notify the user about new recommendations
     if recommended_movies.exists():
         Notification.objects.create(
-            user=request.user,
+            profile=profile,
             message=f"New recommendations based on your wishlist for {profile.name} are available!"
         )
 
@@ -804,6 +832,8 @@ def view_wishlist(request):
         'wishlist': wishlist,
         'recommended_movies': recommended_movies,
         'active_profile': profile,
+        'profile': profile,
+        'notifications':notifications
     })
 
 @login_required
@@ -817,7 +847,7 @@ def add_to_wishlist(request, movie_id):
         Wishlist.objects.create(profile=profile, movie=movie)
 
         Notification.objects.create(
-            user=request.user,
+            profile=profile,
             message=f"Movie '{movie.name}' was added to {profile.name}'s wishlist."
         )
 
@@ -833,57 +863,41 @@ def remove_from_wishlist(request, wishlist_id):
     wishlist_item.delete()
 
     Notification.objects.create(
-        user=request.user,
+        profile=profile,
         message=f"A movie was removed from {profile.name}'s wishlist."
     )
 
     return redirect('view_wishlist')
 
 
+### red
+# @login_required
+# def manage_profiles_view(request):
+#     """Manage user profiles (up to 4 per subscription)."""
+#     try:
+#         subscription = Subscription.objects.get(user=request.user)
+#         if not subscription.is_active:
+#             return redirect('subscription_view')
 
-@login_required
-def manage_profiles_view(request):
-    """Manage user profiles (up to 4 per subscription)."""
-    try:
-        subscription = Subscription.objects.get(user=request.user)
-        if not subscription.is_active:
-            return redirect('subscription_view')
+#         profiles = subscription.profiles.all()
+#         if request.method == "POST":
+#             if "delete_profile" in request.POST:
+#                 profile_id = request.POST.get("profile_id")
+#                 Profile.objects.filter(id=profile_id, subscription=subscription).delete()
+#                 messages.success(request, "Profile deleted successfully.")
+#             elif len(profiles) < 4 and "profile_name" in request.POST:
+#                 profile_name = request.POST.get("profile_name")
+#                 if profile_name:
+#                     Profile.objects.create(subscription=subscription, name=profile_name)
+#                     messages.success(request, "Profile added successfully.")
 
-        profiles = subscription.profiles.all()
-        if request.method == "POST":
-            if "delete_profile" in request.POST:
-                profile_id = request.POST.get("profile_id")
-                Profile.objects.filter(id=profile_id, subscription=subscription).delete()
-                messages.success(request, "Profile deleted successfully.")
-            elif len(profiles) < 4 and "profile_name" in request.POST:
-                profile_name = request.POST.get("profile_name")
-                if profile_name:
-                    Profile.objects.create(subscription=subscription, name=profile_name)
-                    messages.success(request, "Profile added successfully.")
+#         return render(request, 'netflix/manage_profiles.html', {'profiles': profiles})
 
-        return render(request, 'netflix/manage_profiles.html', {'profiles': profiles})
-
-    except Subscription.DoesNotExist:
-        return redirect('subscription_view')
+#     except Subscription.DoesNotExist:
+#         return redirect('subscription_view')
 
 
 
-    
-@login_required
-def renew_subscription(request):
-    """Renew the user's subscription."""
-    try:
-        subscription = Subscription.objects.get(user=request.user)
-        subscription.date_expired += timezone.timedelta(days=30)  # Extend by 30 days
-        subscription.is_active = True
-        subscription.save()
-
-        send_renewal_notification(request.user)  # Notify user of renewal
-        messages.success(request, "Subscription renewed successfully.")
-        return redirect('subscription_view')
-    except Subscription.DoesNotExist:
-        messages.error(request, "No active subscription found.")
-        return redirect('subscription_view')
 
 @login_required
 def delete_profile(request, profile_id):
@@ -915,7 +929,7 @@ def edit_profile_view(request, profile_id):
         profile.save()
 
         Notification.objects.create(
-            user=request.user,
+            profile=profile,
             message=f"Profile '{profile.name}' was updated with categories: {', '.join(cat.name for cat in valid_categories)}."
         )
         return redirect('profile_view')
@@ -928,41 +942,56 @@ def edit_profile_view(request, profile_id):
     })
 
 
-
-@login_required
-def search_view(request):
-    subscription = get_object_or_404(Subscription, user=request.user)
-    profiles = subscription.profiles.all()
-
-    if not profiles.exists() and request.method != "POST":
-        return render(request, 'netflix/create_profile.html')
-
-    if request.method == "POST":
-        if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
-            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
-
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
-            profile = Profile.objects.create(subscription=subscription, name=name)
-            profile.preferred_categories.set(valid_categories)  # Assign validated categories
-            profile.save()
-
-            Notification.objects.create(
-                user=request.user,
-                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
-            )
-    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-
-
-    search_text = request.GET.get('search_text', '')
-    results = []
+# @login_required
+# def search_view(request, profile_id):
     
-    if search_text:
-        results = Movie.objects.filter(name__icontains=search_text)  # Adjust filter as needed
-    
-    return render(request, 'netflix/search.html', {'search_text': search_text, 'results': results, 'profiles': profiles, 'notifications': notifications})
+#     profile = get_object_or_404(Profile, id=profile_id)
+#     notifications = profile.notifications.all()
+       
+#     subscription = get_object_or_404(Subscription, user=request.user)
+#     profiles = subscription.profiles.all()
+
+#     if not profiles.exists() and request.method != "POST":
+#         return render(request, 'netflix/create_profile.html')
+
+#     # Initialize notifications to an empty queryset
+#     notifications = Notification.objects.none()
+
+#     if request.method == "POST":
+#         if len(profiles) < 4:  # Limit to max 4 profiles
+#             name = request.POST.get('profile_name')
+#             categories_input = request.POST.get('categories', '')  # Get categories or an empty string
+#             categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
+
+#             # Validate categories
+#             valid_categories = Category.objects.filter(name__in=categories)
+#             profile = Profile.objects.create(subscription=subscription, name=name)
+#             profile.preferred_categories.set(valid_categories)  # Assign validated categories
+#             profile.save()
+
+#             Notification.objects.create(
+#                 profile=profile,
+#                 message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
+#             )
+
+#         # Fetch notifications for the profile
+#         notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+
+ 
+#     search_text = request.GET.get('search_text', '')
+#     results = []
+
+#     if search_text:
+#         results = Movie.objects.filter(name__icontains=search_text)  # Adjust filter as needed
+
+#     return render(request, 'netflix/search.html', {
+#         'search_text': search_text,
+#         'results': results,
+#         'profiles': profiles,
+#         'notifications': notifications,
+#         'profile': profile
+#     })
+
 
 @login_required
 def category_view(request):
@@ -996,32 +1025,21 @@ def category_view(request):
     if not profiles.exists() and request.method != "POST":
         return render(request, 'netflix/create_profile.html')
 
-    if request.method == "POST":
-        if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
-            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
-
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
-            profile = Profile.objects.create(subscription=subscription, name=name)
-            profile.preferred_categories.set(valid_categories)  # Assign validated categories
-            profile.save()
-
-            Notification.objects.create(
-                user=request.user,
-                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
-            )
+    # Get active profile from the session
+    profile_id = request.session.get('active_profile')
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
     
-    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
 
     
     return render(request, 'netflix/category_view.html', { 'profiles': profiles, 'notifications': notifications, 'categories': categories}, )
 
 
 
-
+@login_required
 def latest_movies(request):
     
     try:
@@ -1054,26 +1072,155 @@ def latest_movies(request):
     if not profiles.exists() and request.method != "POST":
         return render(request, 'netflix/create_profile.html')
 
-    if request.method == "POST":
-        if len(profiles) < 4:  # Limit to max 4 profiles
-            name = request.POST.get('profile_name')
-            categories_input = request.POST.get('categories', '')  # Get categories or an empty string
-            categories = [cat.strip() for cat in categories_input.split(',') if cat.strip()]  # Split and filter non-empty strings
-
-            # Validate categories
-            valid_categories = Category.objects.filter(name__in=categories)
-            profile = Profile.objects.create(subscription=subscription, name=name)
-            profile.preferred_categories.set(valid_categories)  # Assign validated categories
-            profile.save()
-
-            Notification.objects.create(
-                user=request.user,
-                message=f"Profile '{profile.name}' created with categories: {', '.join(cat.name for cat in valid_categories)}."
-            )
+    profile_id = request.session.get('active_profile')
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
     
-    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+    notifications_data = [
+        {'message': n.message, 'created_at': n.created_at, 'is_read': n.is_read}
+        for n in notifications
+    ]
     
     # Fetch the latest 10 movies
     movies = Movie.objects.order_by('-date_created')[:10]
     return render(request, 'netflix/latest_movies.html', { 'profiles': profiles, 'notifications': notifications, 'movies_by_category': movies_by_category,'categories': categories, 'movies': movies})
+
+
+@login_required
+def profile_notifications(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = profile.notifications.all()
+    return render(request, 'netflix/notifications.html', {'notifications': notifications, 'profile': profile})
+
+@login_required
+@csrf_exempt
+def mark_notification_as_read(request, notification_id):
+    if request.method == 'POST':
+        notification = get_object_or_404(Notification, id=notification_id)
+        notification.is_read = True
+        notification.save()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+
+
+
+@login_required
+def notification_view(request):
+    # Retrieve the profile based on a session variable or parameter
+    profile_id = request.session.get('active_profile_id')  # Example session variable
+    profile = get_object_or_404(Profile, id=profile_id)
+
+    if not profile:
+        # If no profile exists, redirect to profile creation or show an error page
+        return render(request, 'netflix/notifications.html')  # Replace with your template
+
+    # Fetch notifications for this profile
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+
+    return render(request, 'netflix/notifications.html', {'notifications': notifications})
+
+
+
+@login_required
+def notifications_api(request):
+    profile_id = request.session.get('active_profile')
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+    notifications_data = [
+        {'message': n.message, 'created_at': n.created_at, 'is_read': n.is_read}
+        for n in notifications
+    ]
+    return JsonResponse({'notifications': notifications_data})
+
+
+
+@login_required
+def search_view(request):
+
+    try:
+        subscription = Subscription.objects.get(user=request.user)
+        if not subscription.is_active or subscription.date_expired <= timezone.now():
+            subscription.is_active = False
+            subscription.save()
+            return redirect('subscription_view')
+    except Subscription.DoesNotExist:
+        return redirect('subscription_view')
+
+    profile_id = request.session.get('active_profile')
+    profile = Profile.objects.filter(id=profile_id, subscription=subscription).first()
+    
+    if not profile:
+        return redirect('profile_view')
+
+    allowed_resolutions = {
+        'HD': ['HD'],
+        'FHD': ['HD', 'FHD'],
+        'UHD': ['HD', 'FHD', 'UHD'],
+    }
+    resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+
+    preferred_categories = profile.preferred_categories.all()
+    
+    search_text = request.GET.get('search_text', '')
+    results = []
+
+    if search_text:
+        results = Movie.objects.filter(name__icontains=search_text, resolution__in=resolutions)
+    else:
+        results = Movie.objects.filter(
+            category__in=preferred_categories,
+            resolution__in=resolutions
+        )
+    
+    # Get active profile from the session
+    profile_id = request.session.get('active_profile')
+    if not profile_id:
+        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+    
+    # Fetch notifications for the active profile
+    profile = get_object_or_404(Profile, id=profile_id)
+    notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
+    
+    # Add notifications to the context
+    return render(request, 'netflix/search.html', {
+        'notifications': notifications,
+        'search_text': search_text,
+        'results': results,
+        'profile': profile,
+        # Add other context variables as needed
+    })
+
+
+
+
+
+@login_required
+def change_email(request):
+    if request.method == 'POST':
+        form = EmailChangeForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            return redirect('settings')  # Redirect to the settings page after saving
+    else:
+        form = EmailChangeForm(instance=request.user)
+        messages.success(request, 'Your email has been updated successfully!')
+
+    return render(request, 'netflix/change_email.html', {'form': form})
+
+@login_required
+def change_password(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # Prevents logout after password change
+            return redirect('settings')  # Redirect to the settings page after saving
+    else:
+        form = PasswordChangeForm(request.user)
+    return render(request, 'netflix/change_password.html', {'form': form})

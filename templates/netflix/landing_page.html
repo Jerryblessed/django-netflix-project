@@ -60,8 +60,8 @@
             
         {% if request.user.is_authenticated %}
         {{ request.user }}
-          <button class="signin__button"><a href="/logout">Logout</a></button>
-          <button class="signin__button"><a href="/browse">Browse</a></button>
+          <button class="signin__button"><a href="{% url 'logout' %}">Logout</a></button>
+          <button class="signin__button"><a href="{% url 'home' %}">Browse</a></button>
 
           {% else %}
                       <button class="signin__button"><a href="/login">Sign in</a></button>
@@ -94,15 +94,25 @@
             membership .
           </p>
 
-<div class="email__form__container">
-  <div class="form__container">
-    <input type="email" id="landingEmail" class="email__input" placeholder=" " />
-    <label class="email__label">Email Address</label>
-  </div>
-  <button class="primary__button" onclick="redirectToRegister()">
-    Get Started <i class="fal fa-chevron-right"></i>
-  </button>
-</div>
+
+        {% if user.is_authenticated %}
+          <!-- Show this for logged-in users -->
+          
+          <button class="primary__button"><a href="{% url 'home' %}">Begin</a></button>
+
+        {% else %}
+          <!-- Show this for users not logged in -->
+          <div class="email__form__container">
+            <div class="form__container">
+              <input type="email" id="landingEmail" class="email__input" placeholder=" " />
+              <label class="email__label">Email Address</label>
+            </div>
+            <button class="primary__button" onclick="redirectToRegister()">
+              Get Started <i class="fal fa-chevron-right"></i>
+            </button>
+          </div>
+        {% endif %}
+
 
 
         </div>

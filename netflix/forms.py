@@ -53,3 +53,8 @@ class SearchForm(forms.Form):
         label="",
         widget=forms.TextInput(attrs={'placeholder': 'Search'})
     )
+
+class EmailChangeForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['email']

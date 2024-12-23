@@ -14,12 +14,12 @@
     <title>Netflix world – Watch TV Shows Online, Watch Movies Online</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="../assets/lib/owl.carousel.css" />
-    <script src="../assets/lib/jquery 3.5.0.js"></script>
-    <script src="../assets/lib/owl.carousel.js"></script>
+    {% comment %} <link rel="stylesheet" href="../assets/lib/owl.carousel.css" /> {% endcomment %}
+    {% comment %} <script src="../assets/lib/jquery 3.5.0.js"></script>
+    <script src="../assets/lib/owl.carousel.js"></script> {% endcomment %}
 
     <!--main script file-->
-    <script src="../assets/js/main-script.js"></script>
+    {% comment %} <script src="../assets/js/main-script.js"></script> {% endcomment %}
 
 
     <link rel="stylesheet" href="{% static 'netflix/assets/css/global.css' %}">
@@ -64,22 +64,23 @@
                                     <h2 class="second-logo-text red-color f-s-28">N</h2>
                                 </a>
                                 <a href="{% url 'home' %}" class="nav-item home">Home</a>
-                                <a href="{% url 'home' %}" class="nav-item">Categories</a>
+                                <a href="{% url 'category_view' %}" class="nav-item">Categories</a>
                                 
-                                <a href="movies.html" class="nav-item">Movies</a>
-                                <a href="latest.html" class="nav-item latest">Latest</a>
+                                <a href="{% url 'movie' %}" class="nav-item">Movies</a>
+                                <a href="{% url 'latest_movies' %}" class="nav-item latest">Latest</a>
                                 <a href="{% url 'view_wishlist' %}" class="nav-item">My List</a>
                             </div>
                             <div class="righticons d-flex flex-end flex-middle">
-                                <a href="search.html"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
+                                <a href="{% url 'search' %}"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
                                 <div class="dropdown notification">
                                     <img src="{% static 'netflix/assets/images/icons/notification.svg' %}" alt="notificatio icon">
                                     <div class="dropdown-content">
+
                                         {% for notification in notifications %}
                                         <a href="#" class="profile-item d-flex flex-middle">
                                             {% comment %} <img src="../../images/icons/user2.png" alt="user profile icon" class="user-icon"> {% endcomment %}
                                             <li class="{% if not notification.is_read %}unread{% endif %}">
-                                            <span>{{ notification.message }} - {{ notification.created_at }}<span>User 123</span></span>
+                                            <span>{{ notification.message }} - {{ notification.created_at }}<span> dear user</span></span>
                                               </li>
   
                                         </a>
@@ -95,14 +96,6 @@
                                     <div class="dropdown-content">
                                         <div class="profile-links">
 
-                                        {% comment %} {% for profile in profiles %}
-                                            <div class="col-md-3">
-                                                <a href="{% url 'choose_profile' profile.id %}">
-                                                    <img src="{% static 'netflix/img/profile-pic/1.png' %}" alt="Profile Image" class="img-thumbnail widt ml-1">
-                                                    <p class="text-center txt pt-1">{{ profile.name }}</p>
-                                                </a>
-                                            </div>
-                                        {% endfor %} {% endcomment %}
 
                                         {% for profile in profiles %}
                                             <a href="{% url 'choose_profile' profile.id %}" class="profile-item d-flex flex-middle">
@@ -116,7 +109,7 @@
                                         <div class="links d-flex direction-column">
                                             <a href="{% url 'settings'%}">Account</a>
                                             <a href="#">Help Center</a>
-                                            <a href="/">Sign Out of Netflix</a>
+                                            <a href="{% url 'logout' %}">Sign Out of Netflix</a>
                                         </div>
                                         
                                     </div>
@@ -126,8 +119,10 @@
             </header>            
 
 
-            <!--paretn div with black bg after main hero section-->
-            <div class="searchform d-flex flex-center flex-middle" style="padding-top: 150px;">
+
+        <!--paretn div with black bg after main hero section-->
+        <div class="searchform d-flex flex-center flex-middle" style="padding-top: 150px;">
+
 
 <form method="GET" style="display: flex; align-items: center; gap: 10px; margin: 20px 0;">
     <input 
@@ -174,7 +169,7 @@
 
 
                    <section id="search-results" class="container">
-    <h4 class="search-heading">Search Results</h4>
+    <h4 class="search-heading">Choose</h4>
     <div class="search-results-container d-flex flex-start flex-middle flex-no-wrap owl-carousel">
         {% for movie in results %}
         <div class="video" style="position: relative; width: 230px; height: 240px; margin-right: 10px;">
@@ -202,11 +197,13 @@
                     onmouseout="this.parentNode.querySelector('video').pause(); this.parentNode.querySelector('video').currentTime = 0;">
                     <h4 class="heading f-w-8 text-shadow" style="margin: 0;">{{ movie.name }}</h4>
                     <p class="rated text-shadow" style="margin: 0; font-size: 12px;"><strong>Category:</strong> {{ movie.category.name }}</p>
+                    <p class="rated text-shadow" style="margin: 0; font-size: 12px;"><strong>Resolution:</strong> {{ movie.resolution }}</p>
                     <div class="genere d-flex flex-no-wrap text-shadow" style="font-size: 12px;">
                         {% for tag in movie.tags.all %}
                         <p style="margin-right: 5px;">#{{ tag.name }}</p>
                         {% endfor %}
                     </div>
+
                 </div>
             </a>
         </div>
@@ -214,19 +211,36 @@
     </div>
 
     <!-- Inline JavaScript for Description Hover -->
-    <script>
-        document.querySelectorAll('.video').forEach(videoContainer => {
-            const video = videoContainer.querySelector('video');
-            const description = videoContainer.querySelector('.video-description');
+<script>
+    document.querySelectorAll('.video').forEach(videoContainer => {
+        const video = videoContainer.querySelector('video');
+        const description = videoContainer.querySelector('.video-description');
+        let playTimeout; // To store the timeout ID
 
-            videoContainer.addEventListener('mouseover', () => {
-                description.style.display = 'flex';
-            });
-            videoContainer.addEventListener('mouseout', () => {
-                description.style.display = 'none';
-            });
+        videoContainer.addEventListener('mouseover', () => {
+            // Show description
+            description.style.display = 'flex';
+
+            // Start a 3-second delay before playing the video
+            playTimeout = setTimeout(() => {
+                video.play();
+            }, 5000);
         });
-    </script>
+
+        videoContainer.addEventListener('mouseout', () => {
+            // Hide description
+            description.style.display = 'none';
+
+            // Cancel the video play if mouse leaves before 3 seconds
+            clearTimeout(playTimeout);
+
+            // Pause the video and reset playback
+            video.pause();
+            video.currentTime = 0;
+        });
+    });
+</script>
+
 </section>
 
 
@@ -282,19 +296,19 @@
     </main>
 
     <div class="footer-navigation d-flex space-between">
-        <a href="browse.html" class="nav-item active">
+        <a href="{% url 'home' %}" class="nav-item active">
             <i class="fa fa-home" aria-hidden="true"></i> </br>
-            <span>Home</span>
+            Home
         </a>
-        <a href="search.html" class="nav-item">
+        <a href="{% url 'search' %}" class="nav-item">
             <i class="fa fa-search" aria-hidden="true"></i></br>
             Search
         </a>
-        <a href="latest.html" class="nav-item">
+        <a href="{% url 'latest_movies' %}" class="nav-item">
             <i class="fa fa-film" aria-hidden="true"></i></br>
             Latest
         </a>
-        <a href="user-profile/home.html" class="nav-item">
+        <a href="{% url 'settings' %}" class="nav-item">
             <i class="fa fa-user" aria-hidden="true"></i></br>
             Account
         </a>

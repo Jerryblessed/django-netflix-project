@@ -41,7 +41,7 @@
 
     <main id="mainContainer" class="p-b-40">
         <div>
-             <header class="d-flex space-between flex-center flex-middle" style="z-index: 20; background-color: black;">
+            <header class="d-flex space-between flex-center flex-middle" style="z-index: 20; background-color: black;">
                             <div class="nav-links d-flex flex-center flex-middle">
                                 <a href="/">
                                     <h2 class="logo logo-text red-color f-s-28 m-r-25">NETFLIX</h2>
@@ -50,12 +50,12 @@
                                 <a href="{% url 'home' %}" class="nav-item home">Home</a>
                                 <a href="{% url 'category_view' %}" class="nav-item">Categories</a>
                                 
-                                <a href="movies.html" class="nav-item">Movies</a>
-                                <a href="latest.html" class="nav-item latest">Latest</a>
+                                <a href="{% url 'movie' %}" class="nav-item">Movies</a>
+                                <a href="{% url 'latest_movies' %}" class="nav-item latest">Latest</a>
                                 <a href="{% url 'view_wishlist' %}" class="nav-item">My List</a>
                             </div>
                             <div class="righticons d-flex flex-end flex-middle">
-                                <a href="{% url 'search' %}"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
+                                <a href="search.html"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
                                 <div class="dropdown notification">
                                     <img src="{% static 'netflix/assets/images/icons/notification.svg' %}" alt="notificatio icon">
                                     <div class="dropdown-content">
@@ -69,6 +69,8 @@
                                         </a>
                                         {% endfor %}
     
+      
+  
                                     </div>
                                 </div>
                                 <div class="dropdown">
@@ -77,14 +79,6 @@
                                     <div class="dropdown-content">
                                         <div class="profile-links">
 
-                                        {% comment %} {% for profile in profiles %}
-                                            <div class="col-md-3">
-                                                <a href="{% url 'choose_profile' profile.id %}">
-                                                    <img src="{% static 'netflix/img/profile-pic/1.png' %}" alt="Profile Image" class="img-thumbnail widt ml-1">
-                                                    <p class="text-center txt pt-1">{{ profile.name }}</p>
-                                                </a>
-                                            </div>
-                                        {% endfor %} {% endcomment %}
 
                                         {% for profile in profiles %}
                                             <a href="{% url 'choose_profile' profile.id %}" class="profile-item d-flex flex-middle">
@@ -98,7 +92,7 @@
                                         <div class="links d-flex direction-column">
                                             <a href="{% url 'settings'%}">Account</a>
                                             <a href="#">Help Center</a>
-                                            <a href="/">Sign Out of Netflix</a>
+                                            <a href="{% url 'logout' %}">Sign Out of Netflix</a>
                                         </div>
                                         
                                     </div>
@@ -297,23 +291,24 @@
     </main>
 
     <div class="footer-navigation d-flex space-between">
-        <a href="browse.html" class="nav-item active">
+        <a href="{% url 'home' %}" class="nav-item active">
             <i class="fa fa-home" aria-hidden="true"></i> </br>
-            <span>Home</span>
+            Home
         </a>
-        <a href="search.html" class="nav-item">
+        <a href="{% url 'search' %}" class="nav-item">
             <i class="fa fa-search" aria-hidden="true"></i></br>
             Search
         </a>
-        <a href="latest.html" class="nav-item">
+        <a href="{% url 'latest_movies' %}" class="nav-item">
             <i class="fa fa-film" aria-hidden="true"></i></br>
             Latest
         </a>
-        <a href="user-profile/home.html" class="nav-item">
+        <a href="{% url 'settings' %}" class="nav-item">
             <i class="fa fa-user" aria-hidden="true"></i></br>
             Account
         </a>
     </div>
+    
 </body>
 
 </html>

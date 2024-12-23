@@ -37,11 +37,11 @@ class WishlistAdmin(admin.ModelAdmin):
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ('user', 'message', 'created_at')
-    search_fields = ('user__username', 'message')
+    list_display = ('profile', 'message', 'created_at', 'is_read')
+    search_fields = ('profile__name', 'message')
     list_filter = ('created_at', 'is_read')
-
-
+    
+    
 class LikeInline(admin.TabularInline):
     """Inline to display likes for a movie in the admin."""
     model = Like

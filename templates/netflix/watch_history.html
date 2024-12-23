@@ -1,3 +1,8 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
 <h1>Your Watch History</h1>
 <ul>
   {% for watch in watch_history %}
@@ -8,3 +13,6 @@
   <li>No movies watched yet.</li>
   {% endfor %}
 </ul>
+
+
+{%endblock%}
