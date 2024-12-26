@@ -49,6 +49,8 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.core.mail import send_mail
+
 from .models import Subscription
 
 import requests
@@ -66,6 +68,36 @@ STRIPE_SECRET_KEY = "sk_test_51L8i0jDkGOBWyh471bK0YOEg5VQCiSHFsogH4mfytpAXQixAhG
 
 stripe.api_key = STRIPE_SECRET_KEY
 
+
+
+def send_welcome_notification(subscription):
+    """Send a welcome notification to the user if no profiles exist."""
+    message = f"Welcome! Your subscription is active until {subscription.date_expired}. Enjoy our services!"
+
+    # Create in-app notification
+    Notification.objects.create(
+        subscription=subscription,
+        message=message
+    )
+
+    # Send welcome email
+    subject = "Welcome to Netflix!"
+    email_message = (
+        f"Dear {subscription.user.first_name},\n\n"
+        f"Thank you for subscribing to Netflix. Your {subscription.plan} subscription is active until {subscription.date_expired}.\n\n"
+        "Enjoy unlimited access to our content.\n\n"
+        "Best regards,\n"
+        "The Netflix Team"
+    )
+    recipient_email = subscription.user.email
+
+    send_mail(
+        subject,
+        email_message,
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient_email],
+        fail_silently=False,
+    )
 
 
 def send_welcome_notification(subscription):
@@ -113,25 +145,33 @@ def renew_subscription(request):
 
 
 
-@login_required
-def like_movie(request, movie_id):
-    """Toggle like/unlike for a movie for the active profile."""
-    movie = get_object_or_404(Movie, id=movie_id)
-    profile_id = request.session.get('active_profile')  # Get active profile from the session
-    if not profile_id:
-        return JsonResponse({'error': 'No active profile selected.'}, status=400)
+def custom_404_view(request, exception):
+    # Redirect to the homepage
+    return render(request, 'netflix/404_page.html')  # Replace 'index' with the name of your homepage URL pattern
+
+def custom_500_view(request):
+    # Redirect to the homepage
+    return render(request, 'netflix/404_page.html')  # Replace 'index' with the name of your homepage URL pattern
+
+# @login_required
+# def like_movie(request, movie_id):
+#     """Toggle like/unlike for a movie for the active profile."""
+#     movie = get_object_or_404(Movie, id=movie_id)
+#     profile_id = request.session.get('active_profile')  # Get active profile from the session
+#     if not profile_id:
+#         return JsonResponse({'error': 'No active profile selected.'}, status=400)
     
-    profile = get_object_or_404(Profile, id=profile_id)
-    like, created = Like.objects.get_or_create(profile=profile, movie=movie)
+#     profile = get_object_or_404(Profile, id=profile_id)
+#     like, created = Like.objects.get_or_create(profile=profile, movie=movie)
 
-    if not created:
-        like.is_liked = not like.is_liked  # Toggle like status
-        like.save()
+#     if not created:
+#         like.is_liked = not like.is_liked  # Toggle like status
+#         like.save()
 
-    return JsonResponse({
-        'message': 'Movie liked' if like.is_liked else 'Movie unliked',
-        'likes_count': movie.likes_count(),
-    })
+#     return JsonResponse({
+#         'message': 'Movie liked' if like.is_liked else 'Movie unliked',
+#         'likes_count': movie.likes_count(),
+#     })
 
 @login_required
 def user_liked_movies_view(request):
@@ -158,18 +198,31 @@ def like_movie_view(request, movie_id):
     like, created = Like.objects.get_or_create(profile=profile, movie=movie)
 
     if not created:
-        # If the profile already liked the movie, remove the like
+        # If the profile already liked the movie, toggle the like off
         like.delete()
-        return JsonResponse({'message': 'Movie unliked', 'likes_count': Like.objects.filter(movie=movie).count()})
+        return JsonResponse({
+            'message': 'Movie unliked',
+            'likes_count': Like.objects.filter(movie=movie).count()
+        })
 
-    return JsonResponse({'message': 'Movie liked', 'likes_count': Like.objects.filter(movie=movie).count()})
+    # Toggle like on and create a notification
+    Notification.objects.create(
+        profile=profile,
+        message=f"You liked the movie '{movie.name}'",
+        created_at=now()
+    )
+    return JsonResponse({
+        'message': 'Movie liked',
+        'likes_count': Like.objects.filter(movie=movie).count()
+    })
 
 
  
 def landing_view(request):
     """Landing page view."""
     return render(request, 'netflix/landing_page.html')  # Ensure this HTML exists
- 
+
+@login_required
 def settings_view(request):
     """Settings page view."""
     subscription = get_object_or_404(Subscription, user=request.user)
@@ -739,15 +792,18 @@ def subscription_view(request):
         user_subscription.save()
 
     plans = sorted([
-        {'name': 'Basic', 'price': 500},  # Example prices in cents
-        {'name': 'Standard', 'price': 1000},
-        {'name': 'Premium', 'price': 1500},
+        {'name': 'Basic', 'price': 50},  # Prices remain in cents here
+        {'name': 'Standard', 'price': 100},
+        {'name': 'Premium', 'price': 150},
     ], key=lambda x: x['price'])
 
     if request.method == "POST":
         plan = request.POST.get('plan')
         for p in plans:
             if p['name'] == plan:
+                # Save the selected plan to the session
+                request.session['selected_plan'] = plan
+
                 session = stripe.checkout.Session.create(
                     payment_method_types=['card'],
                     line_items=[{
@@ -756,7 +812,7 @@ def subscription_view(request):
                             'product_data': {
                                 'name': f"{plan} Plan Subscription",
                             },
-                            'unit_amount': p['price'],
+                            'unit_amount': p['price'],  # Still in cents
                         },
                         'quantity': 1,
                     }],
@@ -764,12 +820,11 @@ def subscription_view(request):
                     success_url=request.build_absolute_uri('/subscription/callback/'),
                     cancel_url=request.build_absolute_uri('/subscription/failure/'),
                 )
-                # Update subscription details
-                user_subscription.plan = plan
-                user_subscription.is_active = True
-                user_subscription.date_expired = timezone.now() + timezone.timedelta(days=30)
-                user_subscription.save()
                 return redirect(session.url, code=303)
+
+    # Convert prices to dollars for display
+    for plan in plans:
+        plan['price_display'] = plan['price'] / 100
 
     return render(request, 'netflix/subscription.html', {
         'subscription': user_subscription,
@@ -779,9 +834,23 @@ def subscription_view(request):
 @login_required
 def subscription_callback(request):
     user_subscription = Subscription.objects.get(user=request.user)
+
+    # Retrieve the selected plan from the session
+    plan = request.session.get('selected_plan')
+    if not plan:
+        return redirect('subscription_failure')  # Handle missing plan gracefully
+
+    # Allow plan updates even if the subscription is active
+    user_subscription.plan = plan
     user_subscription.is_active = True
     user_subscription.date_subscribed = timezone.now()
-    user_subscription.date_expired = timezone.now() + timedelta(days=30)
+
+    # Extend the expiration date if still valid, or start a new 30-day period
+    if user_subscription.date_expired and user_subscription.date_expired > timezone.now():
+        remaining_days = (user_subscription.date_expired - timezone.now()).days
+        user_subscription.date_expired += timezone.timedelta(days=30) if remaining_days > 0 else timezone.timedelta(days=30)
+    else:
+        user_subscription.date_expired = timezone.now() + timezone.timedelta(days=30)
 
     # Map plans to resolutions
     plan_to_resolution = {
@@ -789,8 +858,11 @@ def subscription_callback(request):
         'Standard': 'FHD',
         'Premium': 'UHD',
     }
-    user_subscription.subscription_type = plan_to_resolution.get(user_subscription.plan, 'HD')
+    user_subscription.subscription_type = plan_to_resolution.get(plan, 'HD')
     user_subscription.save()
+
+    # Clear the session variable after use
+    del request.session['selected_plan']
 
     return redirect('index')
 
@@ -1013,7 +1085,20 @@ def category_view(request):
         'UHD': ['HD', 'FHD', 'UHD'],
     }
     resolutions = allowed_resolutions.get(subscription.subscription_type, ['HD'])
+    
+    preferred_categories = profile.preferred_categories.all()
 
+    search_text = request.GET.get('search_text', '')
+    results = []
+
+    if search_text:
+        results = Movie.objects.filter(name__icontains=search_text, resolution__in=resolutions)
+    else:
+        results = Movie.objects.filter(
+            category__in=preferred_categories,
+            resolution__in=resolutions
+        )
+        
     categories = Category.objects.all()
     movies_by_category = {
         category.name: Movie.objects.filter(category=category, resolution__in=resolutions)
@@ -1035,7 +1120,7 @@ def category_view(request):
     notifications = Notification.objects.filter(profile=profile).order_by('-created_at')
 
     
-    return render(request, 'netflix/category_view.html', { 'profiles': profiles, 'notifications': notifications, 'categories': categories}, )
+    return render(request, 'netflix/category_view.html', { 'profiles': profiles, 'notifications': notifications, 'categories': categories, 'search_text': search_text, 'results': results,}, )
 
 
 

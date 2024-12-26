@@ -23,7 +23,7 @@
       href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
       rel="stylesheet"
     />
-    <title>Netflix India - Watch TV Shows Online, Watch Movies Online</title>
+    <title>Netflix - Watch TV Shows Online, Watch Movies Online</title>
     <link
       rel="icon"
       href="http://pngimg.com/uploads/netflix/small/netflix_PNG15.png"
@@ -59,7 +59,6 @@
 
             
         {% if request.user.is_authenticated %}
-        {{ request.user }}
           <button class="signin__button"><a href="{% url 'logout' %}">Logout</a></button>
           <button class="signin__button"><a href="{% url 'home' %}">Browse</a></button>
 
@@ -338,16 +337,26 @@
             Ready to watch? Enter your email to create or restart your
             membership.
           </h3>
+
+                  {% if user.is_authenticated %}
+          <!-- Show this for logged-in users -->
+          
+          <button class="primary__button"><a href="{% url 'home' %}">Begin</a></button>
+
+        {% else %}
+          <!-- Show this for users not logged in -->
           <div class="email__form__container">
             <div class="form__container">
-              <input type="email" class="email__input" placeholder=" " />
+              <input type="email" id="landingEmail" class="email__input" placeholder=" " />
               <label class="email__label">Email Address</label>
             </div>
-            <button class="primary__button">
+            <button class="primary__button" onclick="redirectToRegister()">
               Get Started <i class="fal fa-chevron-right"></i>
             </button>
           </div>
-        </div>
+        {% endif %}
+
+      </div>
       </section>
     </main>
 

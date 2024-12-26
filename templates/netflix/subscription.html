@@ -1,5 +1,4 @@
 {% load custom_filters %}
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -23,6 +22,47 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      flex-direction: column;
+    }
+
+    .navbar {
+      width: 100%;
+      background-color: #e50914;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+      position: fixed;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .navbar-logo {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .navbar-menu {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .signout-btn {
+      background-color: transparent;
+      border: 1px solid white;
+      color: white;
+      padding: 8px 12px;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .signout-btn:hover {
+      background-color: white;
+      color: #e50914;
     }
 
     .container {
@@ -33,6 +73,7 @@
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       padding: 30px;
       text-align: center;
+      margin-top: 80px;
     }
 
     h1 {
@@ -107,6 +148,21 @@
   </style>
 </head>
 <body>
+  <div class="navbar">
+    <div class="navbar-logo">Netflix</div>
+    <div class="navbar-menu">
+      <form method="POST" action="{% url 'settings' %}">
+        {% csrf_token %}
+        <button class="signout-btn" type="submit">My profile</button>
+      </form>
+      
+      <form method="POST" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button class="signout-btn" type="submit">Sign Out</button>
+      </form>
+    </div>
+  </div>
+
   <div class="container">
     <h1>Subscription</h1>
     {% if subscription.is_active %}
@@ -119,28 +175,26 @@
       {% for plan in plans %}
       <div class="plan {% if subscription.is_active and subscription.plan == plan.name %}active{% endif %}">
         <div class="plan-title">{{ plan.name }} Plan</div>
-        <div class="plan-price">${{ plan.price|floatformat:2 }} / month</div>
+        <div class="plan-price">${{ plan.price_display|floatformat:2 }} / month</div>
         <div class="plan-features">
           {% if plan.name == "Basic" %}
             <ul>
-
-            <li>✔ 480p Resolution</li>
-            <li>✔ Access on 1 device</li>
-            <li>✔ Unlimited movies and TV shows</li>
+              <li>✔ 480p Resolution</li>
+              <li>✔ Access on 1 device</li>
+              <li>✔ Unlimited movies and TV shows</li>
             </ul>
-
           {% elif plan.name == "Standard" %}
             <ul>
-            <li>✔ 1080p Resolution</li>
-            <li>✔ Access on 2 devices simultaneously</li>
-            <li>✔ Download movies for offline viewing</li>
+              <li>✔ 1080p Resolution</li>
+              <li>✔ Access on 2 devices simultaneously</li>
+              <li>✔ Download movies for offline viewing</li>
             </ul>
           {% elif plan.name == "Premium" %}
             <ul>
-            <li>✔ 4K+HDR Resolution</li>
-            <li>✔ Access on 4 devices simultaneously</li>
-            <li>✔ Exclusive content</li>
-            <li>✔ Download in high quality</li>
+              <li>✔ 4K+HDR Resolution</li>
+              <li>✔ Access on 4 devices simultaneously</li>
+              <li>✔ Exclusive content</li>
+              <li>✔ Download in high quality</li>
             </ul>
           {% endif %}
         </div>

@@ -14,13 +14,19 @@
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../assets/lib/owl.carousel.css" />
+    
     <script src="{% static 'netflix/assets/lib/jquery-3.5.0.js' %}"></script>
     <script src="{% static 'netflix/assets/lib/owl.carousel.js' %}"></script>
+
+
+
     
     <!-- Main script file -->
     <script src="{% static 'netflix/assets/js/main-script.js' %}"></script>
 
     <link rel="stylesheet" href="{% static 'netflix/assets/css/global.css' %}">
+
+    <link rel="stylesheet" href="{% static 'netflix/assets/lib/owl.carousel.css' %}">
     <link rel="stylesheet" href="{% static 'netflix/assets/css/browse.css' %}">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.1.0/css/font-awesome.min.css" integrity="sha256-t2kyTgkh+fZJYRET5l9Sjrrl4UDain5jxdbqe8ejO8A=" crossorigin="anonymous" />
@@ -132,7 +138,7 @@
             </video>
 
             <!-- Video Description -->
-            <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}"
+            <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}">
             <a>
             <div 
                 class="video-description d-flex flex-end direction-column" 
@@ -200,7 +206,7 @@
                                     points="8.4639503 12.8342327 6.65837455 13.2666206 6.65837455 7.77862061 4.65323515 7.77862061 4.65323515 6.22012364 10.4690897 6.22012364 10.4690897 7.77862061 8.4639503 7.77862061">
                                 </polygon>
                             </svg>
-                            <span class="p-l-10 f-s-24 f-w-8">#1 in USA</span>
+                            <span class="p-l-10 f-s-24 f-w-8">#1 globally</span>
                         </div>
 
                         <div class="synopsis m-t-20" style="max-width: 500px;">

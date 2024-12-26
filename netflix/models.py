@@ -34,6 +34,9 @@ class Movie(models.Model):
 
     name = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True, null=True)
+    more_info = models.TextField(blank=True, null=True)
+    year = models.IntegerField(blank=True, null=True)
+    duration = models.DurationField(blank=True, null=True)
     category = models.ForeignKey('Category', on_delete=models.CASCADE)
     tags = models.ManyToManyField('Tag')
     resolution = models.CharField(max_length=10, choices=RESOLUTION_CHOICES)

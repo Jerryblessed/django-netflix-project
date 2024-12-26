@@ -32,8 +32,9 @@
 
 
 
+
     <script src="{% static 'netflix/assets/lib/jquery-3.5.0.js' %}"></script>
-    {% comment %} <link rel="stylesheet" href="{% static 'netflix/assets/lib/owl.carousel.css' %}"> {% endcomment %}
+    <link rel="stylesheet" href="{% static 'netflix/assets/lib/owl.carousel.css' %}">
     <script src="{% static 'netflix/assets/lib/owl.carousel.js' %}"></script>
     
     <!-- Main script file -->
@@ -91,7 +92,7 @@
                                 <a href="{% url 'view_wishlist' %}" class="nav-item">My List</a>
                             </div>
                             <div class="righticons d-flex flex-end flex-middle">
-                                <a href="search.html"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
+                                <a href="{% url 'search'%}"><img src="{% static 'netflix/assets/images/icons/search.svg' %}" alt="search icon"></a>
                                 <div class="dropdown notification">
                                     <img src="{% static 'netflix/assets/images/icons/notification.svg' %}" alt="notificatio icon">
                                     <div class="dropdown-content">
@@ -139,7 +140,7 @@
 
 
 
-<!-- Hero Section -->
+
 <!-- Hero Section -->
 <div class="hero-section">
     <section id="browse-dashboard" class="d-flex direction-column flex-start middle-align">
@@ -166,19 +167,23 @@
             <div class="contentlogo">
                 <img src="{{ most_viewed_movie.preview_image.url }}" alt="content logo" class="show-logo" />
             </div>
+
+            <h2>
+                Trending viewed
+            </h2>
             <!-- Top 10 ranking badge -->
-            {% comment %} <div class="ranking d-flex m-t-20 flex-middle">
+            <div class="ranking d-flex m-t-20 flex-middle">
                 <svg id="top-10-badge" viewBox="0 0 28 30">
                     <path d="M0,0 L28,0 L28,30 L0,30 L0,0 Z M2,2 L2,28 L26,28 L26,2 L2,2 Z" fill="#FFFFFF"></path>
                     <path d="M16.8211527,22.1690594..." fill="#FFFFFF"></path>
                     <polygon fill="#FFFFFF" points="8.86676 23.9094206..."></polygon>
                 </svg>
                 <span class="p-l-10">#2 in India Today</span>
-            </div> {% endcomment %}
+            </div>
 
             <!-- Synopsis -->
             <div class="synopsis m-t-20" style="max-width: 500px;">
-                <p>{{ most_viewed_movie.name }}</p>
+                <p>{{ most_viewed_movie.description }}</p>
             </div>
 
             <!-- Buttons -->
@@ -205,7 +210,7 @@
             <!-- More Info Section -->
             <div id="more-info" class="more-info-content m-t-20" style="display: none;">
                 <h3>More Info</h3>
-                <p>{{ most_viewed_movie.description }}</p>
+                <p>{{ most_viewed_movie.more_info }}</p>
             </div>
         </div>
     </section>
@@ -278,7 +283,7 @@
             <div class="black-background">
 
 
-{% comment %} <section id="continue-watch" class="container">
+<section id="continue-watch" class="container">
     <h4 class="mylist-heading">Continue watching for {{active_profile.name}}</h4>
     <div class="mylist-container owl-carousel owl-theme">
         {% for history in watch_history %}
@@ -317,44 +322,44 @@
     </div>
 
     <script>
-    $(document).ready(function() {
-        $(".mylist-container").owlCarousel({
-            items: 2, // Maximum 2 videos per view
-            loop: true, // Enable infinite loop
-            margin: 14, // Space between items
-            nav: true, // Enable navigation arrows
-            navText: ["<", ">"], // Custom navigation icons
-            responsive: {
-                0: { items: 1 }, // 1 item for small screens
-                768: { items: 2 } // 2 items for larger screens
-            }
+        $(document).ready(function() {
+            $(".mylist-container").owlCarousel({
+                items: 2, // Maximum 2 videos per view
+                loop: true, // Enable infinite loop
+                margin: 14, // Space between items
+                nav: true, // Enable navigation arrows
+                navText: ["<", ">"], // Custom navigation icons
+                responsive: {
+                    0: { items: 1 }, // 1 item for small screens
+                    768: { items: 2 } // 2 items for larger screens
+                }
+            });
         });
-    });
-</script>
+    </script>
 
-<style>
-.owl-nav {
-    display: flex;
-    justify-content: space-between;
-    position: absolute;
-    top: 50%;
-    width: 100%;
-    transform: translateY(-50%);
-}
-.owl-nav button {
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 50%;
-    cursor: pointer;
-}
-.owl-nav button:hover {
-    background: rgba(0, 0, 0, 0.8);
-}
+    <style>
+    .owl-nav {
+        display: flex;
+        justify-content: space-between;
+        position: absolute;
+        top: 50%;
+        width: 100%;
+        transform: translateY(-50%);
+    }
+    .owl-nav button {
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: none;
+        padding: 10px;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+    .owl-nav button:hover {
+        background: rgba(0, 0, 0, 0.8);
+    }
 
-</style>
-</section> {% endcomment %}
+    </style>
+</section> 
 
 
 
@@ -412,64 +417,6 @@
     </script>
 </section>
 
-<section id="prefared-category" class="container">
-    <h4 class="mylist-heading">Preferred Category {{active_profile.name}}</h4>
-    <div class="mylist-container d-flex flex-start flex-middle flex-no-wrap owl-carousel">
-        {% for movie in movies %}
-
-        <div class="video" style="position: relative; width: 230px; height: 240px; margin-right: 10px;">
-            <!-- Video Element -->
-             
-            <video 
-                class="mylist-img p-r-10 p-t-10 video-item" 
-                poster="{{ movie.thumbnail.url }}" 
-                width="230" 
-                height="240" 
-                muted
-                preload="none"
-                style="cursor: pointer; object-fit: cover; border-radius: 8px;"
-                onmouseover="this.play();" 
-                onmouseout="this.pause(); this.currentTime = 0;">
-                <source src="{{ movie.file.url }}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-
-            <!-- Video Description -->
-            <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}"
-            <a>
-            <div 
-                class="video-description d-flex flex-end direction-column" 
-                style="position: absolute; bottom: 0; left: 0; right: 0; padding: 10px; background: rgba(0, 0, 0, 0.6); color: white; display: none; align-items: flex-start;"
-                onmouseover="this.parentNode.querySelector('video').play();"
-                onmouseout="this.parentNode.querySelector('video').pause(); this.parentNode.querySelector('video').currentTime = 0;">
-                <h4 class="heading f-w-8 text-shadow" style="margin: 0;">{{ movie.name }}</h4>
-                <p class="rated text-shadow" style="margin: 0; font-size: 12px;"><strong>Category:</strong> {{ movie.category.name }}</p>
-                <div class="genere d-flex flex-no-wrap text-shadow" style="font-size: 12px;">
-                    {% for tag in item.movie.tags.all %}
-                    <p style="margin-right: 5px;">#{{ tag.name }}</p>
-                    {% endfor %}
-                </div>
-                <a href="{% url  'add_to_wishlist' movie.id %}" class="remove-link" style="color: #ff6b6b; font-size: 12px; text-decoration: none;">Add</a> 
-            </div>
-        </div>
-        
-        {% endfor %}
-    </div>
-    <!-- Inline JavaScript for Description Hover -->
-    <script>
-        document.querySelectorAll('.video').forEach(videoContainer => {
-            const video = videoContainer.querySelector('video');
-            const description = videoContainer.querySelector('.video-description');
-
-            videoContainer.addEventListener('mouseover', () => {
-                description.style.display = 'flex';
-            });
-            videoContainer.addEventListener('mouseout', () => {
-                description.style.display = 'none';
-            });
-        });
-    </script>
-</section>
 
 
 {% if most_liked_movie %}
@@ -535,6 +482,66 @@
     <p>No most-liked movie available.</p>
 {% endif %}
 
+<section id="prefared-category" class="container">
+    <h4 class="mylist-heading">Preferred Category {{active_profile.name}}</h4>
+    <div class="mylist-container d-flex flex-start flex-middle flex-no-wrap owl-carousel">
+        {% for movie in movies %}
+
+        <div class="video" style="position: relative; width: 230px; height: 240px; margin-right: 10px;">
+            <!-- Video Element -->
+             
+            <video 
+                class="mylist-img p-r-10 p-t-10 video-item" 
+                poster="{{ movie.thumbnail.url }}" 
+                width="230" 
+                height="240" 
+                muted
+                preload="none"
+                style="cursor: pointer; object-fit: cover; border-radius: 8px;"
+                onmouseover="this.play();" 
+                onmouseout="this.pause(); this.currentTime = 0;">
+                <source src="{{ movie.file.url }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+
+            <!-- Video Description -->
+            <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}"
+            <a>
+            <div 
+                class="video-description d-flex flex-end direction-column" 
+                style="position: absolute; bottom: 0; left: 0; right: 0; padding: 10px; background: rgba(0, 0, 0, 0.6); color: white; display: none; align-items: flex-start;"
+                onmouseover="this.parentNode.querySelector('video').play();"
+                onmouseout="this.parentNode.querySelector('video').pause(); this.parentNode.querySelector('video').currentTime = 0;">
+                <h4 class="heading f-w-8 text-shadow" style="margin: 0;">{{ movie.name }}</h4>
+                <p class="rated text-shadow" style="margin: 0; font-size: 12px;"><strong>Category:</strong> {{ movie.category.name }}</p>
+                <div class="genere d-flex flex-no-wrap text-shadow" style="font-size: 12px;">
+                    {% for tag in item.movie.tags.all %}
+                    <p style="margin-right: 5px;">#{{ tag.name }}</p>
+                    {% endfor %}
+                </div>
+                <a href="{% url  'add_to_wishlist' movie.id %}" class="remove-link" style="color: #ff6b6b; font-size: 12px; text-decoration: none;">Add</a> 
+            </div>
+        </div>
+        
+        {% endfor %}
+    </div>
+    <!-- Inline JavaScript for Description Hover -->
+    <script>
+        document.querySelectorAll('.video').forEach(videoContainer => {
+            const video = videoContainer.querySelector('video');
+            const description = videoContainer.querySelector('.video-description');
+
+            videoContainer.addEventListener('mouseover', () => {
+                description.style.display = 'flex';
+            });
+            videoContainer.addEventListener('mouseout', () => {
+                description.style.display = 'none';
+            });
+        });
+    </script>
+</section>
+
+
 <section id="Other-category" class="container">
     <h4 class="mylist-heading">Other Categories {{active_profile.name}}</h4>
     <div class="mylist-container d-flex flex-start flex-middle flex-no-wrap owl-carousel">
@@ -595,31 +602,6 @@
 </section>
 
 
-
-
-{% comment %} <h2>Preferred Movies</h2>
-<ul>
-  {% for movie in movies %}
-  <li>
-    <img src="{{ movie.thumbnail.url }}" alt="{{ movie.name }}">
-    <h3>{{ movie.name }}</h3>
-    <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}">Watch Now</a>
-    <a href="{% url 'add_to_wishlist' movie.id %}">Add to Wishlist</a>
-  </li>
-  {% endfor %}
-</ul>
-
-<h2>Other Movies</h2>
-<ul>
-  {% for movie in other_movies %}
-  <li>
-    <img src="{{ movie.thumbnail.url }}" alt="{{ movie.name }}">
-    <h3>{{ movie.name }}</h3>
-    <a href="{% url 'watch_movie' %}?movie_pk={{ movie.id }}">Watch Now</a>
-    <a href="{% url 'add_to_wishlist' movie.id %}">Add to Wishlist</a>
-  </li>
-  {% endfor %}
-</ul> {% endcomment %}
 
 
 {% for category, movies in movies_by_category.items %}

@@ -79,7 +79,7 @@ class MovieAdmin(admin.ModelAdmin):
         return "No video available"
     get_video.short_description = 'Preview Video'
 
-    list_display = ['name', 'get_preview', 'get_thumbnail', 'get_video', 'description', 'get_likes_count', 'resolution']
+    list_display = ['name', 'get_preview', 'get_thumbnail', 'get_video', 'description', 'more_info', 'year', 'duration', 'get_likes_count', 'resolution']
     inlines = [LikeInline]
 
     def get_likes_count(self, obj):

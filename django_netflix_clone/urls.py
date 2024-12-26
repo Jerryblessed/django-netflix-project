@@ -29,7 +29,11 @@ from netflix.views import user_liked_movies_view
 
 
 from netflix.views import subscription_view, subscription_callback, subscription_failure
+from netflix.views import custom_404_view, custom_500_view
 
+
+handler404 = custom_404_view
+handler500 = custom_500_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),

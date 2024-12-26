@@ -133,28 +133,19 @@
 
         <section class="movieinformation container">
             <div class="movielogo">
-                <img src="{{ movie.preview_image.url }}" alt="{{ movie.name }}">
+                <img src="{{ movie.preview_image.url }}" alt="{{ movie.name }}" width="320" 
+                height="100" >
             </div>
             <div class="movierelease">
-                <span class="year">
-                    2019
-                </span>
-                <span class="rating">
-                    PG-13
-                </span>
-                <span class="timeduration">
-                    3h 7m
-                </span>
+                <span class="year">{{ movie.year }}</span>
+                <span class="rating">PG-13</span>
+                <span class="timeduration">{{ movie.duration }}</span>
             </div>
             <div class="description">
-                {{ movie.description }}         
+                {{ movie.description }}
             </div>
             <div class="castinformation">
-                <p><span class="name">Director:</span> Kyle Newacheck</p>
-                <p><span class="name">Screenplay:</span> James Vanderbilt</p>
-                <p><span class="name">Producers:</span> Adam Sandler, James Vanderbilt, Allen Covert, James D. Stern,
-                    Tripp Vinson, A.J. Dix</p>
-                <p><span class="name">Awards:</span> People's Choice Award for Favorite Comedic Movie</p>
+                {{ movie.more_info }}
             </div>
             <div class="actions d-flex flex-start flex-middle">
                 <a href="{% url 'view_wishlist' %}" class="link-item">
@@ -162,54 +153,68 @@
                     My List
                 </a>
                 
-                <a href="#" class="link-item">
-                    <i class="fa fa-thumbs-up"></i>
-
-
-
-                      
-                  </br>
-                    Like
+                <a class="link-item">
+                    <button id="like-btn" onclick="toggleLike()" style="background: none; border: none; color: white; cursor: pointer;">
+                        <i id="like-icon" class="fa {% if user_liked %}fa-thumbs-down{% else %}fa-thumbs-up{% endif %}"></i>
+                    </button>
+                    <br>
+                    <span id="like-text">{% if user_liked %}Dislike{% else %}Like{% endif %}</span>
                 </a>
 
-            <div class="link-item" style="color: white; text-decoration: none; text-align: center;">
-                <p>Likes: <span id="likes-count">{{ movie.likes_count }}</span></p>
-                <button id="like-btn" onclick="toggleLike()" style="background: none; border: none; color: white; cursor: pointer;">Like</button>
-            </div>
+                <script>
+                    function toggleLike() {
+                        const likeIcon = document.getElementById('like-icon');
+                        const likeText = document.getElementById('like-text');
 
-            <script>
-                function toggleLike() {
-                    const likeBtn = document.getElementById('like-btn');
-                    const likesCount = document.getElementById('likes-count');
-                    
-                    fetch("{% url 'like_movie' movie.id %}", {
-                        method: "POST",
-                        headers: {
-                            "X-CSRFToken": "{{ csrf_token }}",
-                        },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            alert(data.error);
-                            return;
+                        // Toggle icon and text immediately
+                        if (likeIcon.classList.contains('fa-thumbs-up')) {
+                            likeIcon.classList.replace('fa-thumbs-up', 'fa-thumbs-down');
+                            likeText.textContent = 'Dislike';
+                        } else {
+                            likeIcon.classList.replace('fa-thumbs-down', 'fa-thumbs-up');
+                            likeText.textContent = 'Like';
                         }
-                        likeBtn.textContent = data.message.includes('liked') ? 'Unlike' : 'Like';
-                        likesCount.textContent = data.likes_count;
-                    })
-                    .catch(error => console.error('Error:', error));
-                }
-            </script>
+
+                        // Send data to the server to save the change
+                        fetch("{% url 'like_movie' movie.id %}", {
+                            method: "POST",
+                            headers: {
+                                "X-CSRFToken": "{{ csrf_token }}",
+                            },
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                alert(data.error);
+                                return;
+                            }
+                            // Optionally handle successful update here
+                        })
+                        .catch(error => console.error('Error:', error));
+                    }
+                </script>
+
+                <style>
+                    #like-icon {
+                        transition: transform 0.3s ease, color 0.3s ease;
+                    }
+
+                    #like-icon.fa-thumbs-up:hover,
+                    #like-icon.fa-thumbs-down:hover {
+                        transform: scale(1.2);
+                        color: darkblue;
+                    }
+                </style>
 
                 <a href="#" onclick="shareMovie()" class="link-item">
-                    <i class="fa fa-share"></i></br>
+                    <i class="fa fa-share"></i><br>
                     Share
                 </a>
                 <a href="{{ movie.file.url }}" download class="link-item">
-                    <i class="fa fa-download"></i></br>
+                    <i class="fa fa-download"></i><br>
                     Download
                 </a>
-            </div>
+
         </section>
 
 
